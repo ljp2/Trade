@@ -16,6 +16,20 @@ bars = pd.DataFrame(columns=_all_cols)
 bars_n = []
 for i in range(grouping_N):
     bars_n.append(pd.DataFrame(columns=_all_cols))
+HAbars = pd.DataFrame(columns=_tohlc_cols)
+
+def add_bar_to_habars(data_bar):
+    new_bar = {attr:getattr(data_bar, attr) for attr in _tohlc_cols}
+    ha_close = (new_bar['open'] + new_bar['high'] + new_bar['low'] + new_bar['close']) / 4
+    if len(HAbars) == 0:
+        ha_open = (new_bar['open'] + new_bar['close']) / 2
+    else:
+        ha_open = (HAbars.iloc[-1]['open'] + HAbars.iloc[-1]['close']) / 2
+    ha_high = max(new_bar['high'], ha_open, ha_close)
+    ha_low = min(new_bar['low'], ha_open, ha_close)
+    HAbars = HAbars.append({'timestamp': new_bar['timestamp'].timestamp(), 'open': ha_open, 'high': ha_high, 'low': ha_low, 'close': ha_close})
+
+
 
 def add_row_to_bars(data_bar):
     row = {attr:getattr(data_bar, attr) for attr in _tohlc_cols}
@@ -59,7 +73,7 @@ def analysis_process(raw_bars_queue, analysis_queue, command_queue):
                 response = "Some information you requested"
                 analysis_queue.put(response)
 
-        # Receive data from the shared queue
+        # Receive data from the bars supplier
         if not raw_bars_queue.empty():
             data = raw_bars_queue.get()
             if data[0] == "init":
@@ -67,14 +81,18 @@ def analysis_process(raw_bars_queue, analysis_queue, command_queue):
                 for bar in data[1]:
                     add_row_to_bars(bar)
                     update_barsN()
+                    add_bar_to_habars(bar)
                 print(bars.tail(), flush=True)
+                print('\nHAbars\n', HAbars.tail(5), flush=True)
                 analysis_queue.put(bars.close.values)
                 
                     
             elif data[0] == "bar":
                 add_row_to_bars(bar)
                 update_barsN()
+                add_bar_to_habars(bar)
                 print('\n', bars.tail(2), flush=True)
+                print('\nHAbars\n', HAbars.tail(2), flush=True)
                 analysis_queue.put(bars.close.values)
             # Perform analysis on the received data
 
