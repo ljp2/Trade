@@ -33,12 +33,5 @@ def main():
     # Start the application event loop
     app.exec()
 
-    # try:
-    #     # Keep the main process running until interrupted
-    #     receiver_process.join()
-    #     supplier_process.join()
-    # except KeyboardInterrupt:
-    #     print("Main process interrupted by keyboard.")
-
 if __name__ == "__main__":
     main()

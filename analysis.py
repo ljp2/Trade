@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import pandas as pd
+import math
 
 from moving_averages import weighted_moving_average_last
     
@@ -8,18 +9,14 @@ symbol = "BTC/USD"
 _tohlc_cols = ['timestamp', 'open', 'high', 'low', 'close']
 _ohlc_cols = ['open', 'high', 'low', 'close']
 _ma_cols = ['maopen', 'mahigh', 'malow', 'maclose']
+_tma_cols = ['timestamp']+ _ma_cols
 _all_cols = _tohlc_cols + _ma_cols
 periods = {'open': 9, 'high': 5, 'low': 9, 'close': 5}
 grouping_N = 5
 
-bars = pd.DataFrame(columns=_all_cols)
-bars_n = []
-for i in range(grouping_N):
-    bars_n.append(pd.DataFrame(columns=_all_cols))
-HAbars = pd.DataFrame(columns=_tohlc_cols)
 
-def add_bar_to_habars(data_bar):
-    new_bar = {attr:getattr(data_bar, attr) for attr in _tohlc_cols}
+def add_bar_to_habars(HAbars, bars):
+    new_bar = {attr:getattr(bars.iloc[-1], attr) for attr in _tohlc_cols}
     ha_close = (new_bar['open'] + new_bar['high'] + new_bar['low'] + new_bar['close']) / 4
     if len(HAbars) == 0:
         ha_open = (new_bar['open'] + new_bar['close']) / 2
@@ -27,10 +24,24 @@ def add_bar_to_habars(data_bar):
         ha_open = (HAbars.iloc[-1]['open'] + HAbars.iloc[-1]['close']) / 2
     ha_high = max(new_bar['high'], ha_open, ha_close)
     ha_low = min(new_bar['low'], ha_open, ha_close)
-    HAbars = HAbars.append({'timestamp': new_bar['timestamp'].timestamp(), 'open': ha_open, 'high': ha_high, 'low': ha_low, 'close': ha_close})
+    HAbars = HAbars.append({'timestamp': new_bar['timestamp'], 'open': ha_open, 'high': ha_high, 'low': ha_low, 'close': ha_close}, ignore_index=True)
 
-
-
+def add_bar_to_hamabars(HAMAbars, bars):
+    new_bar = {attr:getattr(bars.iloc[-1], attr) for attr in _tma_cols}
+    if any(math.isnan(value) for value in new_bar.values()):
+        hama_open = hama_high = hama_low = hama_close = np.nan
+    elif HAMAbars.iloc[-1].isnull().any():
+        hama_open = (new_bar['maopen'] + new_bar['maclose']) / 2
+        hama_close = (new_bar['maopen'] + new_bar['mahigh'] + new_bar['malow'] + new_bar['maclose']) / 4
+        hama_high = max(new_bar['mahigh'], hama_open, hama_close)
+        hama_low = min(new_bar['malow'], hama_open, hama_close)
+    else:
+        hama_open = (HAbars.iloc[-1]['open'] + HAbars.iloc[-1]['close']) / 2
+        hama_close = (new_bar['maopen'] + new_bar['mahigh'] + new_bar['malow'] + new_bar['maclose']) / 4
+        hama_high = max(new_bar['mahigh'], hama_open, hama_close)
+        hama_low = min(new_bar['malow'], hama_open, hama_close)
+    HAMAbars = HAMAbars.append({'timestamp': new_bar['timestamp'], 'open': hama_open, 'high': hama_high, 'low': hama_low, 'close': hama_close}, ignore_index=True)
+        
 def add_row_to_bars(data_bar):
     row = {attr:getattr(data_bar, attr) for attr in _tohlc_cols}
     row['timestamp'] = row['timestamp'].timestamp()
@@ -63,6 +74,14 @@ def update_barsN():
     tf.loc[index] = row
 
 def analysis_process(raw_bars_queue, analysis_queue, command_queue):
+    
+    bars = pd.DataFrame(columns=_all_cols)
+    bars_n = []
+    for i in range(grouping_N):
+        bars_n.append(pd.DataFrame(columns=_all_cols))
+    HAbars = pd.DataFrame(columns=_tohlc_cols)
+    HAMAbars = pd.DataFrame(columns=_tohlc_cols)
+        
     while True:
         # Check for incoming commands
         while not command_queue.empty():
@@ -81,18 +100,21 @@ def analysis_process(raw_bars_queue, analysis_queue, command_queue):
                 for bar in data[1]:
                     add_row_to_bars(bar)
                     update_barsN()
-                    add_bar_to_habars(bar)
+                    add_bar_to_habars()
+                    add_bar_to_hamabars()
                 print(bars.tail(), flush=True)
-                print('\nHAbars\n', HAbars.tail(5), flush=True)
+                print('\nHAbars\n', HAbars.tail(3), flush=True)
+                print('\nHAMAbars\n', HAMAbars.tail(3), flush=True)
                 analysis_queue.put(bars.close.values)
                 
-                    
             elif data[0] == "bar":
                 add_row_to_bars(bar)
                 update_barsN()
-                add_bar_to_habars(bar)
+                add_bar_to_habars()
+                add_bar_to_hamabars()
                 print('\n', bars.tail(2), flush=True)
                 print('\nHAbars\n', HAbars.tail(2), flush=True)
+                print('\nHAMAbars\n', HAMAbars.tail(2), flush=True)
                 analysis_queue.put(bars.close.values)
             # Perform analysis on the received data
 
