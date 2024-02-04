@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import pandas as pd
 import math
-
+from datetime import datetime
 from moving_averages import weighted_moving_average_last
     
 symbol = "BTC/USD"
@@ -12,7 +12,7 @@ _ma_cols = ['maopen', 'mahigh', 'malow', 'maclose']
 _tma_cols = ['timestamp']+ _ma_cols
 _all_cols = _tohlc_cols + _ma_cols
 periods = {'open': 9, 'high': 5, 'low': 9, 'close': 5}
-grouping_N = 5
+
 
 
 def add_bar_to_habars(HAbars, bars):
@@ -49,7 +49,7 @@ def add_bar_to_hamabars(HAMAbars, bars):
     HAMAbars.loc[len(HAMAbars)] = row
      
         
-def add_row_to_bars(bars, new_bar):
+def add_bar_to_bars(bars, new_bar):
     row = {attr:getattr(new_bar, attr) for attr in _tohlc_cols}
     row['timestamp'] = row['timestamp'].timestamp()
     for i,key in enumerate(_ohlc_cols):
@@ -61,7 +61,7 @@ def add_row_to_bars(bars, new_bar):
             row[_ma_cols[i]] = weighted_moving_average_last(values, period)
     bars.loc[len(bars)] = row
     
-def update_barsN(bars_n, bars):
+def add_bar_to_barsN(bars_n, bars, grouping_N):
     if len(bars) < grouping_N:
         return
     subdf = bars.iloc[-grouping_N:].copy()
@@ -77,17 +77,27 @@ def update_barsN(bars_n, bars):
     mal = subdf.malow.min()
     row = [t,o,h,l,c,mao,mah,mal,mac]
     n = len(bars) % grouping_N     
-    tf = bars_n[n]
-    tf.loc[index] = row
-
-def analysis_process(raw_bars_queue, analysis_queue, command_queue):
+    target_barsN = bars_n[n]
+    target_barsN.loc[index] = row
     
+def add_bar_to_bars_grouped(bars_grouped, bars_n, bars, grouping_N):
+    if len(bars) < grouping_N:
+        return
+    n = len(bars) % grouping_N 
+    target_barsN = bars_n[n]
+    last_group_bar_added = target_barsN.iloc[-1]
+
+    
+    
+def analysis_process(raw_bars_queue, analysis_queue, command_queue):
     bars = pd.DataFrame(columns=_all_cols)
+    grouping_N = 5
     bars_n = []
     for i in range(grouping_N):
         bars_n.append(pd.DataFrame(columns=_all_cols))
     HAbars = pd.DataFrame(columns=_tohlc_cols)
     HAMAbars = pd.DataFrame(columns=_tohlc_cols)
+    bars_grouped = pd.DataFrame(columns=_all_cols)
         
     while True:
         # Check for incoming commands
@@ -104,23 +114,25 @@ def analysis_process(raw_bars_queue, analysis_queue, command_queue):
             if data[0] == "init":
                 print("Received init data:", flush=True)
                 for bar in data[1]:
-                    add_row_to_bars(bars, bar)
-                    update_barsN(bars_n, bars)
+                    add_bar_to_bars(bars, bar)
+                    add_bar_to_barsN(bars_n, bars, grouping_N)
+                    add_bar_to_bars_grouped(bars_grouped, bars_n, bars, grouping_N)
                     add_bar_to_habars(HAbars, bars)
                     add_bar_to_hamabars(HAMAbars, bars)
                 # print(bars.tail(), flush=True)
                 # print('\nHAbars\n', HAbars.tail(3), flush=True)
-                print('\nHAMAbars\n', HAMAbars.tail(3), flush=True)
+                # print('\nHAMAbars\n', HAMAbars.tail(3), flush=True)
                 analysis_queue.put(bars.close.values)
                 
             elif data[0] == "bar":
-                add_row_to_bars(bars, bar)
-                update_barsN(bars_n, bars)
+                add_bar_to_bars(bars, bar)
+                add_bar_to_barsN(bars_n, bars, grouping_N)
+                add_bar_to_bars_grouped(bars_grouped, bars, grouping_N)
                 add_bar_to_habars(HAbars, bars)
                 add_bar_to_hamabars(HAMAbars, bars)
                 # print('\n', bars.tail(2), flush=True)
                 # print('\nHAbars\n', HAbars.tail(2), flush=True)
-                print('\nHAMAbars\n', HAMAbars.tail(2), flush=True)
+                # print('\nHAMAbars\n', HAMAbars.tail(2), flush=True)
                 analysis_queue.put(bars.close.values)
             # Perform analysis on the received data
 
