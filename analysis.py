@@ -13,7 +13,16 @@ _tma_cols = ['timestamp']+ _ma_cols
 _all_cols = _tohlc_cols + _ma_cols
 periods = {'open': 9, 'high': 5, 'low': 9, 'close': 5}
 
-
+def add_bar_to_bars(bars, row:pd.Series):
+    for i,attr in enumerate(_ohlc_cols):
+        period = periods[attr]
+        values = bars[attr].values
+        if len(values) < period:
+            row[_ma_cols[i]] = np.nan
+        else:
+            row[_ma_cols[i]] = weighted_moving_average_last(values, period)
+    bars.loc[len(bars)] = row
+    
 
 def add_bar_to_habars(HAbars, bars):
     new_bar = {attr:getattr(bars.iloc[-1], attr) for attr in _tohlc_cols}
@@ -49,18 +58,6 @@ def add_bar_to_hamabars(HAMAbars, bars):
     HAMAbars.loc[len(HAMAbars)] = row
      
         
-def add_bar_to_bars(bars, new_bar):
-    row = {attr:getattr(new_bar, attr) for attr in _tohlc_cols}
-    row['timestamp'] = row['timestamp'].timestamp()
-    for i,key in enumerate(_ohlc_cols):
-        period = periods[key]
-        values = bars[key].values
-        if len(values) < period:
-            row[_ma_cols[i]] = np.nan
-        else:
-            row[_ma_cols[i]] = weighted_moving_average_last(values, period)
-    bars.loc[len(bars)] = row
-    
 def add_bar_to_barsN(bars_n, bars, grouping_N):
     if len(bars) < grouping_N:
         return
@@ -113,26 +110,31 @@ def analysis_process(raw_bars_queue, analysis_queue, command_queue):
             data = raw_bars_queue.get()
             if data[0] == "init":
                 print("Received init data:", flush=True)
-                for bar in data[1]:
+                print(data[1], flush=True)
+                for index, bar in data[1].iterrows():
                     add_bar_to_bars(bars, bar)
-                    add_bar_to_barsN(bars_n, bars, grouping_N)
-                    add_bar_to_bars_grouped(bars_grouped, bars_n, bars, grouping_N)
-                    add_bar_to_habars(HAbars, bars)
-                    add_bar_to_hamabars(HAMAbars, bars)
+                    print(bars.tail(), flush=True)
+                    # add_bar_to_barsN(bars_n, bars, grouping_N)
+                    # add_bar_to_bars_grouped(bars_grouped, bars_n, bars, grouping_N)
+                    # add_bar_to_habars(HAbars, bars)
+                    # add_bar_to_hamabars(HAMAbars, bars)
                 # print(bars.tail(), flush=True)
                 # print('\nHAbars\n', HAbars.tail(3), flush=True)
                 # print('\nHAMAbars\n', HAMAbars.tail(3), flush=True)
-                analysis_queue.put(bars.close.values)
+                # analysis_queue.put(bars.close.values)
                 
             elif data[0] == "bar":
-                add_bar_to_bars(bars, bar)
-                add_bar_to_barsN(bars_n, bars, grouping_N)
-                add_bar_to_bars_grouped(bars_grouped, bars, grouping_N)
-                add_bar_to_habars(HAbars, bars)
-                add_bar_to_hamabars(HAMAbars, bars)
+                print("Received bar data:", flush=True)
+                print(data[1], flush=True)
+                add_bar_to_bars(bars, data[1])
+                print(bars.tail(), flush=True)
+                # add_bar_to_barsN(bars_n, bars, grouping_N)
+                # add_bar_to_bars_grouped(bars_grouped, bars, grouping_N)
+                # add_bar_to_habars(HAbars, bars)
+                # add_bar_to_hamabars(HAMAbars, bars)
                 # print('\n', bars.tail(2), flush=True)
                 # print('\nHAbars\n', HAbars.tail(2), flush=True)
                 # print('\nHAMAbars\n', HAMAbars.tail(2), flush=True)
-                analysis_queue.put(bars.close.values)
+                # analysis_queue.put(bars.close.values)
             # Perform analysis on the received data
 
