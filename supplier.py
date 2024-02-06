@@ -34,7 +34,7 @@ def bars_supplier_process(raw_bars_queue):
     last_timestamp = df.iloc[-1].timestamp
     raw_bars_queue.put(("init", df))
 
-    i = 1
+    i = 0
     while True:
         try:
             print(f"t{i}", end=" ", flush=True)
@@ -44,7 +44,10 @@ def bars_supplier_process(raw_bars_queue):
                 sleep(5)
                 continue
             else:
-                raw_bars_queue.put(("bar", bar))
+                bar_dict = {'timestamp': bar.timestamp, 'open': bar.open, 'high': bar.high, 'low': bar.low,'close': bar.close }
+                bar_series = pd.Series(bar_dict, name=bar_cnt)
+                bar_cnt += 1
+                raw_bars_queue.put(("bar", bar_series))
                 last_timestamp = bar.timestamp
                 i = 0
                 sleep(55)
