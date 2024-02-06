@@ -28,7 +28,6 @@ def add_bar_to_barsN(bars_n, bars, grouping_N):
     if len(bars) < grouping_N:
         return
     subdf = bars.iloc[-grouping_N:].copy()
-    index = subdf.index[-1]
     t = subdf.timestamp.iloc[-1]
     o = subdf.open.iloc[0]
     c = subdf.close.iloc[-1]
@@ -39,17 +38,19 @@ def add_bar_to_barsN(bars_n, bars, grouping_N):
     mah = subdf.mahigh.max()
     mal = subdf.malow.min()
     row_dict = dict(zip( _all_cols, [t,o,h,l,c,mao,mah,mal,mac]))
+    row_to_add = pd.Series(row_dict, name = subdf.index[-1])
     n = len(bars) % grouping_N     
-    target_barsN = bars_n[n]
-    target_barsN.loc[index] = pd.Series(row_dict)
+    bars_n[n].loc[row_to_add.name] = row_to_add
+    return row_to_add
 
     
-def add_bar_to_bars_grouped(bars_grouped, bars_n, bars, grouping_N):
-    if len(bars) < grouping_N:
-        return
-    n = len(bars) % grouping_N 
-    target_barsN = bars_n[n]
-    last_group_bar_added = target_barsN.iloc[-1]
+def add_bar_to_bars_grouped(bars_grouped, barN_added):
+    # if len(bars) < grouping_N:
+    #     return
+    print(barN_added, flush=True)
+    # n = len(bars) % grouping_N 
+    # target_barsN = bars_n[n]
+    # last_group_bar_added = target_barsN.iloc[-1]
 
 def add_bar_to_habars(HAbars, bars):
     new_bar = {attr:getattr(bars.iloc[-1], attr) for attr in _tohlc_cols}
@@ -113,8 +114,8 @@ def analysis_process(raw_bars_queue, analysis_queue, command_queue):
                 print("Received init data:", flush=True)
                 for index, bar in data[1].iterrows():
                     add_bar_to_bars(bars, bar)
-                    add_bar_to_barsN(bars_n, bars, grouping_N)
-                    add_bar_to_bars_grouped(bars_grouped, bars_n, bars, grouping_N)
+                    barN_added = add_bar_to_barsN(bars_n, bars, grouping_N)
+                    add_bar_to_bars_grouped(bars_grouped, barN_added)
                     # add_bar_to_habars(HAbars, bars)
                     # add_bar_to_hamabars(HAMAbars, bars)
                 # print(bars.tail(), flush=True)
@@ -126,8 +127,8 @@ def analysis_process(raw_bars_queue, analysis_queue, command_queue):
             elif data[0] == "bar":
                 print("Received bar data:", flush=True)
                 add_bar_to_bars(bars, data[1])
-                add_bar_to_barsN(bars_n, bars, grouping_N)
-                add_bar_to_bars_grouped(bars_grouped, bars, grouping_N)
+                barN_added = add_bar_to_barsN(bars_n, bars, grouping_N)
+                add_bar_to_bars_grouped(bars_grouped, barN_added)
                 # add_bar_to_habars(HAbars, bars)
                 # add_bar_to_hamabars(HAMAbars, bars)
                 # print('\n', bars.tail(2), flush=True)
