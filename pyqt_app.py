@@ -35,12 +35,28 @@ class MainWindow(QMainWindow):
     def update_plot(self):
         while not self.data_queue.empty():
             data = self.data_queue.get()
-            try:
-                y = data.close.values
-                self.plot_widget.plot(y)
-            except Exception as e:
-                print(e, flush=True)
-                continue
+            print(type(data.close.values))  # print the type of data.close.values
+            print(type(data.close.values[0]))  # print the type of the first element in data.close.values
+            print('flags', data.close.values.flags)
+
+            y = [float(x) for x in data.close.values]
+            print(type(y))  # print the type of y
+            print(type(y[0]))  # print the type of the first element in y
+
+            # try:
+            #     y = [float(x) for x in data.close.values]
+            #     print('isfinite', np.isfinite(y), flush=True)
+            # except Exception as e:
+            #     print('data.close.values\n', data.close.values, flush=True)
+            #     print('error', flush=True)
+            #     print(e, flush=True)
+                
+            # y = filter_numeric(data.close.values)
+            # print(type(y), flush=True)
+            # print('isfinite', np.isfinite(y), flush=True)
+            # print(y)
+            # self.plot_widget.plot(y)
+
             
 
 # if __name__ == "__main__":
