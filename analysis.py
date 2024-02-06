@@ -65,28 +65,22 @@ def add_bar_to_habars(HAbars, bar):
     HAbars.loc[bar.name] = row
 
 
-def add_bar_to_hamabars(HAMAbars, bars):
-    new_bar = {attr:getattr(bars.iloc[-1], attr) for attr in _tma_cols}
-    
-    if any(math.isnan(value) for value in new_bar.values()):
+def add_bar_to_hamabars(HAMAbars, bar):
+    if bar.isnull().any():
         hama_open = hama_high = hama_low = hama_close = np.nan
-        
     elif HAMAbars.iloc[-1].isnull().any():
-        hama_open = (new_bar['maopen'] + new_bar['maclose']) / 2
-        hama_close = (new_bar['maopen'] + new_bar['mahigh'] + new_bar['malow'] + new_bar['maclose']) / 4
-        hama_high = max(new_bar['mahigh'], hama_open, hama_close)
-        hama_low = min(new_bar['malow'], hama_open, hama_close)
-        
+        hama_open = (bar['maopen'] + bar['maclose']) / 2
+        hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
+        hama_high = max(bar['mahigh'], hama_open, hama_close)
+        hama_low = min(bar['malow'], hama_open, hama_close)
     else:
         hama_open = (HAMAbars.iloc[-1]['open'] + HAMAbars.iloc[-1]['close']) / 2
-        hama_close = (new_bar['maopen'] + new_bar['mahigh'] + new_bar['malow'] + new_bar['maclose']) / 4
-        hama_high = max(new_bar['mahigh'], hama_open, hama_close)
-        hama_low = min(new_bar['malow'], hama_open, hama_close)
-    row = {'timestamp': new_bar['timestamp'], 'open': hama_open, 'high': hama_high, 'low': hama_low, 'close': hama_close}
-    HAMAbars.loc[len(HAMAbars)] = row
-     
+        hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
+        hama_high = max(bar['mahigh'], hama_open, hama_close)
+        hama_low = min(bar['malow'], hama_open, hama_close)
+    row = {'timestamp': bar['timestamp'], 'open': hama_open, 'high': hama_high, 'low': hama_low, 'close': hama_close}
+    HAMAbars.loc[bar.name] = row
         
-    
     
 def analysis_process(raw_bars_queue, analysis_queue, command_queue):
     bars = pd.DataFrame(columns=_all_cols)
@@ -115,27 +109,30 @@ def analysis_process(raw_bars_queue, analysis_queue, command_queue):
                 for index, bar in data[1].iterrows():
                     bar_added = add_bar_to_bars(bars, bar)
                     add_bar_to_habars(HAbars, bar_added)
+                    add_bar_to_hamabars(HAMAbars, bar_added)
+                    
                     barN_added = add_bar_to_barsN(bars_n, bars, grouping_N)
                     add_bar_to_bars_grouped(bars_grouped, barN_added)
-                    # add_bar_to_hamabars(HAMAbars, bars)
                 # print(bars.tail(), flush=True)
                 # print('\nHAbars\n', HAbars.tail(3), flush=True)
                 # print('\nHAMAbars\n', HAMAbars.tail(3), flush=True)
-                # analysis_queue.put(bars.close.values)
-                print(HAbars.tail(3), flush=True)
+                # print(HAMAbars.tail(3), flush=True)
+                analysis_queue.put(bars)
                 
             elif data[0] == "bar":
                 print("Received bar data:", flush=True)
                 bar_added = add_bar_to_bars(bars, data[1])
                 add_bar_to_habars(HAbars, bar_added)
-                barN_added = add_bar_to_barsN(bars_n, bars, grouping_N)
+                add_bar_to_hamabars(HAMAbars, bar_added)
+                
                 add_bar_to_bars_grouped(bars_grouped, barN_added)
-                # add_bar_to_hamabars(HAMAbars, bars)
+                barN_added = add_bar_to_barsN(bars_n, bars, grouping_N)
+                
                 # print('\n', bars.tail(2), flush=True)
                 # print('\nHAbars\n', HAbars.tail(2), flush=True)
                 # print('\nHAMAbars\n', HAMAbars.tail(2), flush=True)
-                # analysis_queue.put(bars.close.values)
-                print(HAbars.tail(3), flush=True)
+                # print(HAMAbars.tail(3), flush=True)
+                analysis_queue.put(bars)
         
                 
             # Perform analysis on the received data
