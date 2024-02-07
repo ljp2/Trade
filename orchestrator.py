@@ -11,10 +11,12 @@ def main():
     command_queue = multiprocessing.Queue()
     analysis_queue = multiprocessing.Queue()
 
+    queues = {'raw_bars': raw_bars_queue, 'analysis': analysis_queue, 'command': command_queue}
+    
     # Start the data receiver process
     receiver_process = multiprocessing.Process(
         target=analysis_process,
-        args=(raw_bars_queue, analysis_queue, command_queue),
+        args=(queues,),
         daemon=True
     )
     receiver_process.start()
@@ -22,7 +24,7 @@ def main():
     # Start the data supplier process
     supplier_process = multiprocessing.Process(
         target=bars_supplier_process,
-        args=(raw_bars_queue,),
+        args=(queues,),
         daemon=True
     )
     supplier_process.start()

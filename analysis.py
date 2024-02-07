@@ -82,7 +82,11 @@ def add_bar_to_hamabars(HAMAbars, bar):
     HAMAbars.loc[bar.name] = row
         
     
-def analysis_process(raw_bars_queue, analysis_queue, command_queue):
+def analysis_process(queues):
+    raw_bars_queue = queues['raw_bars']
+    command_queue = queues['command']
+    analysis_queue = queues['analysis']
+    
     bars = pd.DataFrame(columns=_all_cols)
     grouping_N = 5
     bars_n = []

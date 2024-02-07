@@ -16,7 +16,8 @@ ALPACA_API_KEY = paper_apikey
 ALPACA_SECRET_KEY = paper_secretkey
 
 
-def bars_supplier_process(raw_bars_queue):
+def bars_supplier_process(queues):
+    raw_bars_queue = queues['raw_bars']
     print("bars_process started", flush=True)
     _tohlc_cols = ['timestamp', 'open', 'high', 'low', 'close']
     bar_cnt = 0    
