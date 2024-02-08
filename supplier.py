@@ -18,23 +18,19 @@ ALPACA_SECRET_KEY = paper_secretkey
 
 def bars_supplier_process(queues):
     raw_bars_queue = queues['raw_bars']
-    print("bars_process started", flush=True)
-    _tohlc_cols = ['timestamp', 'open', 'high', 'low', 'close']
-    bar_cnt = 0    
+    print("bars_process started", flush=True) 
     client = CryptoHistoricalDataClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
     request = CryptoLatestBarRequest(symbol_or_symbols="BTC/USD")
 
     # get historical bars to initialize the bars dataframe
     end = datetime.utcnow()
     start = end - timedelta(hours=1)
-    barset_list = getHistoricalCryptoBars("BTC/USD", start, end) 
-    bars = [{'timestamp': bar.timestamp, 'open': bar.open, 'high': bar.high, 'low': bar.low,'close': bar.close }
-             for bar in barset_list]
-    df = pd.DataFrame(bars)
-    bar_cnt = len(df)
-    last_timestamp = df.iloc[-1].timestamp
-    raw_bars_queue.put(("init", df))
-
+    barset = getHistoricalCryptoBars("BTC/USD", start, end) 
+    for bar in barset:
+        bar_dict = {'timestamp': bar.timestamp, 'open': bar.open, 'high': bar.high, 'low': bar.low,'close': bar.close }   
+        raw_bars_queue.put(bar_dict)
+    last_timestamp = barset[-1].timestamp
+        
     i = 0
     while True:
         try:
@@ -45,11 +41,9 @@ def bars_supplier_process(queues):
                 sleep(5)
                 continue
             else:
-                bar_dict = {'timestamp': bar.timestamp, 'open': bar.open, 'high': bar.high, 'low': bar.low,'close': bar.close }
-                bar_series = pd.Series(bar_dict, name=bar_cnt)
-                bar_cnt += 1
-                raw_bars_queue.put(("bar", bar_series))
                 last_timestamp = bar.timestamp
+                bar_dict = {'timestamp': bar.timestamp, 'open': bar.open, 'high': bar.high, 'low': bar.low,'close': bar.close }
+                raw_bars_queue.put(bar_dict)
                 i = 0
                 sleep(55)
         except Exception as e:

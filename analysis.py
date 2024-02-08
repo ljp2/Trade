@@ -13,44 +13,20 @@ _tma_cols = ['timestamp']+ _ma_cols
 _all_cols = _tohlc_cols + _ma_cols
 periods = {'open': 9, 'high': 5, 'low': 9, 'close': 5}
 
-def add_bar_to_bars(bars, bar:pd.Series):  
-    row = {attr:bar[attr] for attr in _tohlc_cols}
+def add_bar_to_bars(bars, bar:dict):  
     for i,attr in enumerate(_ohlc_cols):
         period = periods[attr]
         values = bars[attr].values
         if len(values) < period:
-            row[_ma_cols[i]] = np.nan
+            bar[_ma_cols[i]] = np.nan
         else:
-            row[_ma_cols[i]] = weighted_moving_average_last(values, period)
-    row_series = pd.Series(row, name=bar.name)
-    bars.loc[bar.name] = row_series
-    return row_series
-    
-def add_bar_to_barsN(bars_n, bars, grouping_N):
-    if len(bars) < grouping_N:
-        return None
-    subdf = bars.iloc[-grouping_N:].copy()
-    t = subdf.timestamp.iloc[-1]
-    o = subdf.open.iloc[0]
-    c = subdf.close.iloc[-1]
-    h = subdf.high.max()
-    l = subdf.low.min()
-    mao =subdf.maopen.iloc[0]
-    mac = subdf.maclose.iloc[-1]
-    mah = subdf.mahigh.max()
-    mal = subdf.malow.min()
-    row_dict = dict(zip( _all_cols, [t,o,h,l,c,mao,mah,mal,mac]))
-    row_to_add = pd.Series(row_dict, name = subdf.index[-1])
-    n = len(bars) % grouping_N     
-    bars_n[n].loc[row_to_add.name] = row_to_add
-    return row_to_add
-
-    
-def add_bar_to_bars_grouped(bars_grouped, barN_added):
-    if barN_added is None:
-        return
-    # print(barN_added.name, barN_added.timestamp, barN_added.close, flush=True)
-    bars_grouped.loc[barN_added.name] = barN_added
+            try:
+                bar[_ma_cols[i]] = weighted_moving_average_last(values, period)
+            except Exception as e:
+                print(e, flush=True)
+                print(f"values: {values}, period: {period}", flush=True)
+                sys.exit()
+    bars.loc[len(bars)] = bar
 
 
 def add_bar_to_habars(HAbars, bar):
@@ -80,6 +56,32 @@ def add_bar_to_hamabars(HAMAbars, bar):
         hama_low = min(bar['malow'], hama_open, hama_close)
     row = {'timestamp': bar['timestamp'], 'open': hama_open, 'high': hama_high, 'low': hama_low, 'close': hama_close}
     HAMAbars.loc[bar.name] = row
+    
+def add_bar_to_barsN(bars_n, bars, grouping_N):
+    if len(bars) < grouping_N:
+        return None
+    subdf = bars.iloc[-grouping_N:].copy()
+    t = subdf.timestamp.iloc[-1]
+    o = subdf.open.iloc[0]
+    c = subdf.close.iloc[-1]
+    h = subdf.high.max()
+    l = subdf.low.min()
+    mao =subdf.maopen.iloc[0]
+    mac = subdf.maclose.iloc[-1]
+    mah = subdf.mahigh.max()
+    mal = subdf.malow.min()
+    row_dict = dict(zip( _all_cols, [t,o,h,l,c,mao,mah,mal,mac]))
+    row_to_add = pd.Series(row_dict, name = subdf.index[-1])
+    n = len(bars) % grouping_N     
+    bars_n[n].loc[row_to_add.name] = row_to_add
+    return row_to_add
+
+    
+def add_bar_to_bars_grouped(bars_grouped, barN_added):
+    if barN_added is None:
+        return
+    # print(barN_added.name, barN_added.timestamp, barN_added.close, flush=True)
+    bars_grouped.loc[barN_added.name] = barN_added
         
     
 def analysis_process(queues):
@@ -97,7 +99,6 @@ def analysis_process(queues):
     bars_grouped = pd.DataFrame(columns=_all_cols)
         
     while True:
-        # Check for incoming commands
         while not command_queue.empty():
             command = command_queue.get()
             print("Received command:", command)
@@ -105,39 +106,23 @@ def analysis_process(queues):
                 response = "Some information you requested"
                 analysis_queue.put(response)
 
-        # Receive data from the bars supplier
-        if not raw_bars_queue.empty():
-            data = raw_bars_queue.get()
-            if data[0] == "init":
-                print("Received init data:", flush=True)
-                for index, bar in data[1].iterrows():
-                    bar_added = add_bar_to_bars(bars, bar)
-                    add_bar_to_habars(HAbars, bar_added)
-                    add_bar_to_hamabars(HAMAbars, bar_added)
+        while not raw_bars_queue.empty():
+            bar = raw_bars_queue.get()
+            add_bar_to_bars(bars, bar)
+            bar_added = bars.iloc[-1]
+            add_bar_to_habars(HAbars, bar_added)
+            add_bar_to_hamabars(HAMAbars, bar_added)
+
+            barN_added = add_bar_to_barsN(bars_n, bars, grouping_N)
+            add_bar_to_bars_grouped(bars_grouped, barN_added)
+            
+            # print(f'bars_grouped\n', bars_grouped.tail(2), flush=True)
+            # print('\n', bars.tail(2), flush=True)
+            # print('\nHAbars\n', HAbars.tail(2), flush=True)
+            # print('\nHAMAbars\n', HAMAbars.tail(2), flush=True)
+            # print(HAMAbars.tail(3), flush=True)
+            
+            
+            # analysis_queue.put(bars)
                     
-                    barN_added = add_bar_to_barsN(bars_n, bars, grouping_N)
-                    add_bar_to_bars_grouped(bars_grouped, barN_added)
-                # print(bars.tail(), flush=True)
-                # print('\nHAbars\n', HAbars.tail(3), flush=True)
-                # print('\nHAMAbars\n', HAMAbars.tail(3), flush=True)
-                # print(HAMAbars.tail(3), flush=True)
-                analysis_queue.put(bars)
-                
-            elif data[0] == "bar":
-                print("Received bar data:", flush=True)
-                bar_added = add_bar_to_bars(bars, data[1])
-                add_bar_to_habars(HAbars, bar_added)
-                add_bar_to_hamabars(HAMAbars, bar_added)
-                
-                add_bar_to_bars_grouped(bars_grouped, barN_added)
-                barN_added = add_bar_to_barsN(bars_n, bars, grouping_N)
-                
-                # print('\n', bars.tail(2), flush=True)
-                # print('\nHAbars\n', HAbars.tail(2), flush=True)
-                # print('\nHAMAbars\n', HAMAbars.tail(2), flush=True)
-                # print(HAMAbars.tail(3), flush=True)
-                analysis_queue.put(bars)
-        
-                
-            # Perform analysis on the received data
 
