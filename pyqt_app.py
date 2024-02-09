@@ -1,7 +1,38 @@
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtGui import QPainter, QPicture
+from PyQt6.QtCore import QRectF, QPointF
+
 import pyqtgraph as pg
 from multiprocessing import Queue
 import numpy as np
+
+
+class CandlestickItem(pg.GraphicsObject):
+    def __init__(self, data):
+        pg.GraphicsObject.__init__(self)
+        self.data = data
+        self.generatePicture()
+
+    def generatePicture(self):
+        self.picture = QPicture()
+        p = QPainter(self.picture)
+        w = (self.data[1][0] - self.data[0][0]) / 3.
+        for (t, open, close, min, max) in self.data:
+            p.setPen(pg.mkPen('w'))
+            p.drawLine(QPointF(t, min), QPointF(t, max))
+            if open > close:
+                p.setBrush(pg.mkBrush('r'))
+            else:
+                p.setBrush(pg.mkBrush('g'))
+            p.drawRect(QRectF(t-w, open, w*2, close-open))
+        p.end()
+
+    def paint(self, p, *args):
+        p.drawPicture(0, 0, self.picture)
+
+    def boundingRect(self):
+        return QRectF(self.picture.boundingRect())
+
 
 class MainWindow(QMainWindow):
     def __init__(self, data_queue):
@@ -28,18 +59,3 @@ class MainWindow(QMainWindow):
             data = self.data_queue.get()
             y = [float(x) for x in data.close.values]
             self.plot_widget.plot(y)
-
-            
-
-# if __name__ == "__main__":
-#     app = QApplication([])
-#     data_queue = Queue()
-#     data_queue.put(1)
-#     window = MainWindow(data_queue)
-#     window.show()
-#     app.exec()
-            # data = [43170.05,43209.5195,43207.725,43239.488,43235.95,43224.95,43211.45,
-            #     43233.9,43218.643,43227.86,43212.151,43232.998,43159.8085,43132.822]
-            # Update the plot with the new data
-            
-            # print(np.isfinite(data.close), flush=True)
