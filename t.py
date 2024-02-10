@@ -1,25 +1,29 @@
-from PyQt6.QtGui import QPainter, QPicture
-from PyQt6.QtCore import QPointF, QRectF
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMainWindow
+from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QPicture
+from PyQt6.QtCore import QRectF, QPointF
 import pyqtgraph as pg
+import numpy as np
 
 class CandlestickItem(pg.GraphicsObject):
     def __init__(self, data):
         pg.GraphicsObject.__init__(self)
-        self.data = data  # data must be list of tuples (time, open, high, low, close)
+        self.data = data
         self.generatePicture()
 
     def generatePicture(self):
         self.picture = QPicture()
         p = QPainter(self.picture)
-        # draw candlesticks
-        for (t, open, high, low, close) in self.data:
-            p.drawLine(QPointF(t, high), QPointF(t, low))
+        # w_rect = (self.data[1][0] - self.data[0][0]) / 3.  # width for the rectangles
+        w_rect = 0.3
+        for (t, open, close, min, max) in self.data:
             if open > close:
-                p.setBrush(pg.mkBrush('r'))
+                p.setPen(QPen(QColor(255, 0, 0), .05))  # red pen with width 2
+                p.setBrush(QBrush(QColor(255, 0, 0)))  # red
             else:
-                p.setBrush(pg.mkBrush('g'))
-            p.drawRect(QRectF(t-0.3, open, 0.6, close-open))
+                p.setPen(QPen(QColor(0, 255, 0), .05))  # green pen with width 2
+                p.setBrush(QBrush(QColor(0, 255, 0)))  # green
+            p.drawLine(QPointF(t, min), QPointF(t, max))
+            p.drawRect(QRectF(t-w_rect, open, w_rect*2, close-open))
         p.end()
 
     def paint(self, p, *args):
@@ -28,23 +32,40 @@ class CandlestickItem(pg.GraphicsObject):
     def boundingRect(self):
         return QRectF(self.picture.boundingRect())
 
-    def update(self, new_candle):
-        self.data.append(new_candle)
+    def update_plot(self, new_data):
+        self.data.append(new_data)
         self.generatePicture()
+        self.update()
 
-# Example usage:
-app = QApplication([])
+class MainWindow(QMainWindow):
+    def __init__(self, *args, **kwargs):
+        super(MainWindow, self).__init__(*args, **kwargs)
 
-data = [ (1, 10, 15, 5, 13), (2, 13, 20, 12, 15), (3, 15, 22, 10, 20) ]
-candlestick = CandlestickItem(data)
+        self.plot_widget = pg.PlotWidget()
+        self.setCentralWidget(self.plot_widget)
 
-win = pg.GraphicsLayoutWidget()
-plt = win.addPlot(title="Candlestick chart")
-plt.addItem(candlestick)
+        data = [  ## fields are (time, open, close, min, max).
+            (1., 10, 13, 5, 15),
+            (2., 13, 17, 9, 20),
+            (3., 17, 14, 11, 23),
+            (4., 14, 15, 5, 19),
+            (5., 15, 9, 8, 22),
+            (6., 9, 15, 8, 16),
+        ]
 
-# Add a new candle
-candlestick.update((4, 20, 23, 15, 22))
+        self.item = CandlestickItem(data)
+        self.plot_widget.addItem(self.item)
+        self.plot_widget.setXRange(1, 7)
+        self.plot_widget.setYRange(4.5, 18)
 
-win.show()
+        # Update the plot with new data
+        new_data = (7., 15, 11, 10, 18)
+        self.item.update_plot(new_data)
 
-app.exec()
+if __name__ == "__main__":
+    app = QApplication([])
+
+    window = MainWindow()
+    window.show()
+
+    app.exec()

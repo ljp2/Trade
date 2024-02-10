@@ -16,15 +16,17 @@ class CandlestickItem(pg.GraphicsObject):
     def generatePicture(self):
         self.picture = QPicture()
         p = QPainter(self.picture)
-        w = (self.data[1][0] - self.data[0][0]) / 3.
+        # w_rect = (self.data[1][0] - self.data[0][0]) / 3.  # width for the rectangles
+        w_rect = 0.3
         for (t, open, close, min, max) in self.data:
-            p.setPen(pg.mkPen('w'))
-            p.drawLine(QPointF(t, min), QPointF(t, max))
             if open > close:
-                p.setBrush(pg.mkBrush('r'))
+                p.setPen(QPen(QColor(255, 0, 0), .05))  # red pen with width 2
+                p.setBrush(QBrush(QColor(255, 0, 0)))  # red
             else:
-                p.setBrush(pg.mkBrush('g'))
-            p.drawRect(QRectF(t-w, open, w*2, close-open))
+                p.setPen(QPen(QColor(0, 255, 0), .05))  # green pen with width 2
+                p.setBrush(QBrush(QColor(0, 255, 0)))  # green
+            p.drawLine(QPointF(t, min), QPointF(t, max))
+            p.drawRect(QRectF(t-w_rect, open, w_rect*2, close-open))
         p.end()
 
     def paint(self, p, *args):
@@ -33,6 +35,10 @@ class CandlestickItem(pg.GraphicsObject):
     def boundingRect(self):
         return QRectF(self.picture.boundingRect())
 
+    def update_plot(self, new_data):
+        self.data.append(new_data)
+        self.generatePicture()
+        self.update()
 
 class MainWindow(QMainWindow):
     def __init__(self, data_queue):
