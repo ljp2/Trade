@@ -98,6 +98,7 @@ def analysis_process(queues):
     HAMAbars = pd.DataFrame(columns=_tohlc_cols)
     bars_grouped = pd.DataFrame(columns=_all_cols)
         
+    cnt = 0
     while True:
         while not command_queue.empty():
             command = command_queue.get()
@@ -122,7 +123,8 @@ def analysis_process(queues):
             # print('\nHAMAbars\n', HAMAbars.tail(2), flush=True)
             # print(HAMAbars.tail(3), flush=True)
             
-            
+            bar['cnt'] = cnt
+            cnt += 1
             analysis_queue.put(bar)
                     
 

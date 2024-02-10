@@ -3,6 +3,7 @@ from PyQt6.QtCore import Qt, QRectF, QTimer
 from PyQt6.QtGui import QPainter, QPicture
 import pyqtgraph as pg
 import numpy as np
+from multiprocessing import Queue
 
 class FillableRect(pg.GraphicsObject):
     def __init__(self, rect, color):
@@ -35,7 +36,6 @@ class PlotCandles(QWidget):
         self.rw2 = self.rw / 2
 
     def plot_candle(self, tohlc):
-        print(tohlc)
         t,o,h,l,c = tohlc
         color = 'g' if c>o else 'r' if c<o else 'y'
         pen = pg.mkPen(color=color, width=2)
@@ -46,36 +46,60 @@ class PlotCandles(QWidget):
         rect_item = FillableRect(rect, color)
         self.plot_widget.addItem(rect_item)
         
-    def plot_data(self, data, shape):
-        if shape == 'line':
-            self.plot_widget.plot(data, pen=pg.mkPen(color=(np.random.randint(0,255), np.random.randint(0,255), np.random.randint(0,255)), width=2))
-        elif shape == 'rectangle':
-            for rect in data:
-                color = (np.random.randint(0,255), np.random.randint(0,255), np.random.randint(0,255))
-                rect_item = FillableRect(rect, color)
-                self.plot_widget.addItem(rect_item)
-
-    def update_plot(self, new_data, shape):
-        self.plot_data(new_data, shape)
+    def update_plot(self, tohlc):
+        self.plot_candle(tohlc)
         
     def clear_plot(self):
         self.plot_widget.clear()
-                
+
 class MainWindow(QMainWindow):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.plot_widget = PlotCandles(self)
-        self.setCentralWidget(self.plot_widget)
+    def __init__(self, queues):
+        super().__init__()
+        self.data_queue = queues['analysis']
+        self.initUI()
 
-if __name__ == '__main__':
-    app = QApplication([])
-    main = MainWindow()
-    main.show()
-    
-    main.plot_widget.plot_candle((1, 10, 13, 5, 7))
-    
-    timer = QTimer()
-    # timer.singleShot(2000, lambda: main.plot_widget.clear_plot())
-    timer.singleShot(2000, lambda: main.plot_widget.plot_candle((2, 7, 17, 5, 15)))
+    def initUI(self):
+        self.setWindowTitle("PyQtGraph with Multiprocessing")
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        layout = QVBoxLayout(self.central_widget)
 
-    app.exec()
+        self.plot_widget = PlotCandles()
+        layout.addWidget(self.plot_widget)
+
+        # Set up a timer to periodically check for new data
+        self.timer = pg.QtCore.QTimer()
+        self.timer.timeout.connect(self.update_plot)
+        self.timer.start(1000)  # Update every 1 second
+
+    def update_plot(self):
+        while not self.data_queue.empty():
+            bar = self.data_queue.get()
+            
+            tohlc = (
+                bar['cnt'],
+                bar['open'],
+                bar['high'],
+                bar['low'],
+                bar['close']
+            )
+            
+            print(tohlc)
+            
+            self.plot_widget.plot_candle(tohlc)
+            
+            
+            
+# if __name__ == '__main__':
+#     app = QApplication([])
+#     data_queue = Queue()
+#     main = MainWindow(data_queue)
+#     main.show()
+    
+#     main.plot_widget.update_plot((1, 10, 13, 5, 7))
+    
+#     timer = QTimer()
+#     # timer.singleShot(2000, lambda: main.plot_widget.clear_plot())
+#     timer.singleShot(2000, lambda: data_queue.put((2, 7, 17, 5, 15)))
+
+#     app.exec()

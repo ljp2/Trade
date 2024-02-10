@@ -29,7 +29,7 @@ def main():
     )
     supplier_process.start()
         # Create the GUI window
-    window = MainWindow(analysis_queue)
+    window = MainWindow(queues)
     window.show()
 
     # Start the application event loop
