@@ -5,6 +5,8 @@ from analysis import analysis_process
 from pyqt_app import MainWindow
 from PyQt6.QtWidgets import QApplication
 
+from plots import PlotCandles, PlotMaCandles
+
 def main():
     app = QApplication([])
     raw_bars_queue = multiprocessing.Queue()
@@ -28,7 +30,10 @@ def main():
         daemon=True
     )
     supplier_process.start()
-        # Create the GUI window
+    
+    plot_widget = PlotMaCandles(analysis_queue)
+    plot_widget.show()
+        
     window = MainWindow(queues)
     window.show()
 
