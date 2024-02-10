@@ -123,6 +123,6 @@ def analysis_process(queues):
             # print(HAMAbars.tail(3), flush=True)
             
             
-            # analysis_queue.put(bars)
+            analysis_queue.put(bar)
                     
 
