@@ -14,19 +14,23 @@ _all_cols = _tohlc_cols + _ma_cols
 periods = {'open': 9, 'high': 5, 'low': 9, 'close': 5}
 
 def add_bar_to_bars(bars, bar:dict):  
+    bar_to_add = bar.copy()
     for i,attr in enumerate(_ohlc_cols):
         period = periods[attr]
         values = bars[attr].values
         if len(values) < period:
-            bar[_ma_cols[i]] = np.nan
+            bar_to_add[_ma_cols[i]] = np.nan
         else:
             try:
-                bar[_ma_cols[i]] = weighted_moving_average_last(values, period)
+                bar_to_add[_ma_cols[i]] = weighted_moving_average_last(values, period)
             except Exception as e:
                 print(e, flush=True)
                 print(f"values: {values}, period: {period}", flush=True)
                 sys.exit()
-    bars.loc[len(bars)] = bar
+    n = len(bars)
+    bar_to_add['name'] = n
+    bars.loc[n] = bar_to_add
+    return bar_to_add
 
 
 def add_bar_to_habars(HAbars, bar):
@@ -38,13 +42,11 @@ def add_bar_to_habars(HAbars, bar):
     ha_high = max(bar['high'], ha_open, ha_close)
     ha_low = min(bar['low'], ha_open, ha_close)
     row = {'timestamp': bar['timestamp'], 'open': ha_open, 'high': ha_high, 'low': ha_low, 'close': ha_close}
-    HAbars.loc[bar.name] = row
+    HAbars.loc[bar['name']] = row
 
 
 def add_bar_to_hamabars(HAMAbars, bar):
-    if bar.isnull().any():
-        hama_open = hama_high = hama_low = hama_close = np.nan
-    elif HAMAbars.iloc[-1].isnull().any():
+    if len(HAMAbars) == 0:
         hama_open = (bar['maopen'] + bar['maclose']) / 2
         hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
         hama_high = max(bar['mahigh'], hama_open, hama_close)
@@ -55,11 +57,10 @@ def add_bar_to_hamabars(HAMAbars, bar):
         hama_high = max(bar['mahigh'], hama_open, hama_close)
         hama_low = min(bar['malow'], hama_open, hama_close)
     row = {'timestamp': bar['timestamp'], 'open': hama_open, 'high': hama_high, 'low': hama_low, 'close': hama_close}
-    HAMAbars.loc[bar.name] = row
+    HAMAbars.loc[bar['name']] = row
     
-def add_bar_to_barsN(bars_n, bars, grouping_N):
-    if len(bars) < grouping_N:
-        return None
+
+def update_barsN(bars_n, bars, grouping_N):
     subdf = bars.iloc[-grouping_N:].copy()
     t = subdf.timestamp.iloc[-1]
     o = subdf.open.iloc[0]
@@ -71,23 +72,21 @@ def add_bar_to_barsN(bars_n, bars, grouping_N):
     mah = subdf.mahigh.max()
     mal = subdf.malow.min()
     row_dict = dict(zip( _all_cols, [t,o,h,l,c,mao,mah,mal,mac]))
-    row_to_add = pd.Series(row_dict, name = subdf.index[-1])
-    n = len(bars) % grouping_N     
-    bars_n[n].loc[row_to_add.name] = row_to_add
-    return row_to_add
+    name = subdf.index[-1]
+    n = len(bars) % grouping_N 
+    # row_series = pd.Series(row_dict) 
+    bars_n[n].loc[name] = row_dict
+    return name, row_dict
 
-    
-def add_bar_to_bars_grouped(bars_grouped, barN_added):
-    if barN_added is None:
-        return
-    # print(barN_added.name, barN_added.timestamp, barN_added.close, flush=True)
-    bars_grouped.loc[barN_added.name] = barN_added
-        
     
 def analysis_process(queues):
     raw_bars_queue = queues['raw_bars']
     command_queue = queues['command']
-    analysis_queue = queues['analysis']
+    bars_queue = queues['bars']
+    mabars_queue = queues['mabars']
+    habars_queue = queues['ha_bars']
+    hama_queue = queues['hama_bars']
+    composite_group_queue = queues['composite_group']
     
     bars = pd.DataFrame(columns=_all_cols)
     grouping_N = 5
@@ -96,35 +95,27 @@ def analysis_process(queues):
         bars_n.append(pd.DataFrame(columns=_all_cols))
     HAbars = pd.DataFrame(columns=_tohlc_cols)
     HAMAbars = pd.DataFrame(columns=_tohlc_cols)
-    bars_grouped = pd.DataFrame(columns=_all_cols)
+    bars_N_grouped = pd.DataFrame(columns=_all_cols)
         
-    cnt = 0
     while True:
         while not command_queue.empty():
             command = command_queue.get()
             print("Received command:", command)
             if command == "get_info":
                 response = "Some information you requested"
-                analysis_queue.put(response)
+                bars_queue.put(response)
 
         while not raw_bars_queue.empty():
             bar = raw_bars_queue.get()
-            add_bar_to_bars(bars, bar)
-            bar_added = bars.iloc[-1]
-            add_bar_to_habars(HAbars, bar_added)
-            add_bar_to_hamabars(HAMAbars, bar_added)
-
-            barN_added = add_bar_to_barsN(bars_n, bars, grouping_N)
-            add_bar_to_bars_grouped(bars_grouped, barN_added)
+            bar_added_with_name = add_bar_to_bars(bars, bar)
+            bars_queue.put(bar_added_with_name)
+            mabars_queue.put(bar_added_with_name)
             
-            # print(f'bars_grouped\n', bars_grouped.tail(2), flush=True)
-            # print('\n', bars.tail(2), flush=True)
-            # print('\nHAbars\n', HAbars.tail(2), flush=True)
-            # print('\nHAMAbars\n', HAMAbars.tail(2), flush=True)
-            # print(HAMAbars.tail(3), flush=True)
             
-            bar['cnt'] = cnt
-            cnt += 1
-            analysis_queue.put(bar)
-                    
-
+            add_bar_to_habars(HAbars, bar_added_with_name)
+            
+            add_bar_to_hamabars(HAMAbars, bar_added_with_name)
+            
+            if len(bars) >= grouping_N:
+                name, barN_added = update_barsN(bars_n, bars, grouping_N)
+                bars_N_grouped.loc[name] = barN_added

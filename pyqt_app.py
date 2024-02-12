@@ -10,7 +10,7 @@ from multiprocessing import Queue
 class MainWindow(QMainWindow):
     def __init__(self, queues):
         super().__init__()
-        self.data_queue = queues['analysis']
+        self.data_queue = queues['bars']
         self.initUI()
 
     def initUI(self):

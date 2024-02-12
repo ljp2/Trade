@@ -55,7 +55,7 @@ class PlotCandles(QWidget):
     
     def candle_from_bar(self, bar):
             tohlc = [
-                bar['cnt'],
+                bar['name'],
                 bar['open'],
                 bar['high'],
                 bar['low'],
@@ -89,11 +89,15 @@ class PlotMaCandles(PlotCandles):
         super().__init__(data_queue)
 
     def candle_from_bar(self, bar):
-        tohlc = (
-            bar['cnt'],
-            bar['maopen'],
-            bar['mahigh'],
-            bar['malow'],
-            bar['maclose']
-        )
-        return tohlc
+        try:
+            tohlc = (
+                bar['name'],
+                bar['maopen'],
+                bar['mahigh'],
+                bar['malow'],
+                bar['maclose']
+            )
+            return tohlc    
+        except Exception as e:
+            print(e, flush=True)
+        
