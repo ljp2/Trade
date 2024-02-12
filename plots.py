@@ -27,11 +27,11 @@ class FillableRect(pg.GraphicsObject):
         return QRectF(self.picture.boundingRect())
 
 class PlotCandles(QWidget):
-    def __init__(self, data_queue=None):
+    def __init__(self, data_queue=None, title = "Candles"):
         super().__init__()
         self.data_queue = data_queue
         self.layout = QVBoxLayout(self)
-        self.plot_widget = pg.PlotWidget()
+        self.plot_widget = pg.PlotWidget(title=title)
         self.layout.addWidget(self.plot_widget)
         self.rw = 0.6
         self.rw2 = self.rw / 2
@@ -85,8 +85,8 @@ class PlotCandles(QWidget):
 
 
 class PlotMaCandles(PlotCandles):
-    def __init__(self, data_queue=None):
-        super().__init__(data_queue)
+    def __init__(self, data_queue=None, title = None):
+        super().__init__(data_queue, title)
 
     def candle_from_bar(self, bar):
         try:
@@ -96,6 +96,24 @@ class PlotMaCandles(PlotCandles):
                 bar['mahigh'],
                 bar['malow'],
                 bar['maclose']
+            )
+            return tohlc    
+        except Exception as e:
+            print(e, flush=True)
+
+
+class PlotGroupN(PlotCandles):
+    def __init__(self, data_queue=None, title = None):
+        super().__init__(data_queue, title)
+
+    def candle_from_bar(self, bar):
+        try:
+            tohlc = (
+                bar['name'],
+                bar['open'],
+                bar['high'],
+                bar['low'],
+                bar['close']
             )
             return tohlc    
         except Exception as e:
