@@ -111,11 +111,11 @@ def analysis_process(queues):
             bar = raw_bars_queue.get()
             bar_added_with_name= add_bar_to_bars(bars, bar)
             
-            bars_queue.put(bar_added_with_name)
-            mabars_queue.put(bar_added_with_name)
+            # bars_queue.put(bar_added_with_name)
+            # mabars_queue.put(bar_added_with_name)
             
-            habar_with_name = add_bar_to_habars(HAbars, bar_added_with_name)
-            habars_queue.put(habar_with_name)
+            # habar_with_name = add_bar_to_habars(HAbars, bar_added_with_name)
+            # habars_queue.put(habar_with_name)
             
             hamabar_with_name = add_bar_to_hamabars(HAMAbars, bar_added_with_name)
             hama_queue.put(hamabar_with_name)
