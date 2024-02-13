@@ -46,6 +46,9 @@ def add_bar_to_habars(HAbars, bar):
             'low': ha_low, 'close': ha_close}
 
 def add_bar_to_hamabars(HAMAbars, bar):
+    for key in _ma_cols:
+        if np.isnan(bar[key]):
+            return
     if len(HAMAbars) == 0:
         hama_open = (bar['maopen'] + bar['maclose']) / 2
         hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
@@ -58,7 +61,10 @@ def add_bar_to_hamabars(HAMAbars, bar):
         hama_low = min(bar['malow'], hama_open, hama_close)
     row = {'timestamp': bar['timestamp'], 'open': hama_open, 'high': hama_high, 
            'low': hama_low, 'close': hama_close}
-    HAMAbars.loc[bar['name']] = row
+    name = bar['name']
+    HAMAbars.loc[name] = row
+    row['name'] = name
+    return row
     
 
 def update_barsN(bars_n, bars, grouping_N):
@@ -72,22 +78,20 @@ def update_barsN(bars_n, bars, grouping_N):
     mac = subdf.maclose.iloc[-1]
     mah = subdf.mahigh.max()
     mal = subdf.malow.min()
-    row_dict = dict(zip( _all_cols, [t,o,h,l,c,mao,mah,mal,mac]))
+    row = dict(zip( _all_cols, [t,o,h,l,c,mao,mah,mal,mac]))
     name = subdf.index[-1]
     n = len(bars) % grouping_N 
     # row_series = pd.Series(row_dict) 
-    bars_n[n].loc[name] = row_dict
-    return {'name': name, 'timestamp': t, 'open': o, 'high': h, 'low': l, 'close': c, 
-            'maopen': mao, 'mahigh': mah, 'malow': mal, 'maclose': mac}
-
+    bars_n[n].loc[name] = row
+    return name, row
     
 def analysis_process(queues):
     raw_bars_queue = queues['raw_bars']
     command_queue = queues['command']
     bars_queue = queues['bars']
     mabars_queue = queues['mabars']
-    habars_queue = queues['ha_bars']
-    hama_queue = queues['hama_bars']
+    habars_queue = queues['ha']
+    hama_queue = queues['hama']
     groupN_queue = queues['groupN']
     
     bars = pd.DataFrame(columns=_all_cols)
@@ -102,7 +106,6 @@ def analysis_process(queues):
     while True:
         while not command_queue.empty():
             command = command_queue.get()
-            print("Received command:", command)
             if command == "get_info":
                 response = "Some information you requested"
                 bars_queue.put(response)
@@ -111,15 +114,19 @@ def analysis_process(queues):
             bar = raw_bars_queue.get()
             bar_added_with_name= add_bar_to_bars(bars, bar)
             
-            # bars_queue.put(bar_added_with_name)
-            # mabars_queue.put(bar_added_with_name)
+            bars_queue.put(bar_added_with_name)
             
-            # habar_with_name = add_bar_to_habars(HAbars, bar_added_with_name)
-            # habars_queue.put(habar_with_name)
+            mabars_queue.put(bar_added_with_name)
+            
+            habar_with_name = add_bar_to_habars(HAbars, bar_added_with_name)
+            habars_queue.put(habar_with_name)
             
             hamabar_with_name = add_bar_to_hamabars(HAMAbars, bar_added_with_name)
-            hama_queue.put(hamabar_with_name)
+            if hamabar_with_name is not None:
+                hama_queue.put(hamabar_with_name)
             
-            # if len(bars) >= grouping_N:
-            #     name, barN_added = update_barsN(bars_n, bars, grouping_N)
-            #     bars_N_grouped.loc[name] = barN_added
+            if len(bars) >= grouping_N:
+                name, barN_added = update_barsN(bars_n, bars, grouping_N)
+                bars_N_grouped.loc[name] = barN_added
+                barN_added['name'] = name
+                groupN_queue.put(barN_added)

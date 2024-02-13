@@ -67,19 +67,11 @@ class PlotCandles(QWidget):
     def update_plot(self):
         def plot_bar(bar):
             tohlc = self.candle_from_bar(bar)
-            if any(np.isnan(x) for x in tohlc):
-                print(f"NaN in bar: {bar}", flush=True)
-                return
-            print(tohlc, flush=True)
             self.plot_candle(tohlc)
             
         while not self.data_queue.empty():
             data = self.data_queue.get()
-            if isinstance(data, list):
-                for bar in data:
-                    plot_bar(bar)
-            else:
-                plot_bar(data)  
+            plot_bar(data)  
         
     def clear_plot(self):
         self.plot_widget.clear()

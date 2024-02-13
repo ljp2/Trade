@@ -18,13 +18,12 @@ ALPACA_SECRET_KEY = paper_secretkey
 
 def bars_supplier_process(queues):
     raw_bars_queue = queues['raw_bars']
-    print("bars_process started", flush=True) 
     client = CryptoHistoricalDataClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
     request = CryptoLatestBarRequest(symbol_or_symbols="BTC/USD")
 
     # get historical bars to initialize the bars dataframe
     end = datetime.utcnow()
-    start = end - timedelta(hours=1)
+    start = end - timedelta(hours=4)
     barset = getHistoricalCryptoBars("BTC/USD", start, end) 
     for bar in barset:
         bar_dict = {'timestamp': bar.timestamp, 'open': bar.open, 'high': bar.high, 'low': bar.low,'close': bar.close }   
