@@ -42,7 +42,8 @@ def add_bar_to_habars(HAbars, bar):
     ha_low = min(bar['low'], ha_open, ha_close)
     row = {'timestamp': bar['timestamp'], 'open': ha_open, 'high': ha_high, 'low': ha_low, 'close': ha_close}
     HAbars.loc[bar['name']] = row
-    return {'name': bar['name'], 'timestamp': bar['timestamp'], 'open': ha_open, 'high': ha_high, 'low': ha_low, 'close': ha_close}
+    return {'name': bar['name'], 'timestamp': bar['timestamp'], 'open': ha_open, 'high': ha_high, 
+            'low': ha_low, 'close': ha_close}
 
 def add_bar_to_hamabars(HAMAbars, bar):
     if len(HAMAbars) == 0:
@@ -55,7 +56,8 @@ def add_bar_to_hamabars(HAMAbars, bar):
         hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
         hama_high = max(bar['mahigh'], hama_open, hama_close)
         hama_low = min(bar['malow'], hama_open, hama_close)
-    row = {'timestamp': bar['timestamp'], 'open': hama_open, 'high': hama_high, 'low': hama_low, 'close': hama_close}
+    row = {'timestamp': bar['timestamp'], 'open': hama_open, 'high': hama_high, 
+           'low': hama_low, 'close': hama_close}
     HAMAbars.loc[bar['name']] = row
     
 
@@ -75,7 +77,8 @@ def update_barsN(bars_n, bars, grouping_N):
     n = len(bars) % grouping_N 
     # row_series = pd.Series(row_dict) 
     bars_n[n].loc[name] = row_dict
-    return name, row_dict
+    return {'name': name, 'timestamp': t, 'open': o, 'high': h, 'low': l, 'close': c, 
+            'maopen': mao, 'mahigh': mah, 'malow': mal, 'maclose': mac}
 
     
 def analysis_process(queues):
@@ -106,15 +109,16 @@ def analysis_process(queues):
 
         while not raw_bars_queue.empty():
             bar = raw_bars_queue.get()
-            bar_added = add_bar_to_bars(bars, bar)
-            bars_queue.put(bar_added)
-            mabars_queue.put(bar_added)
+            bar_added_with_name= add_bar_to_bars(bars, bar)
             
+            bars_queue.put(bar_added_with_name)
+            mabars_queue.put(bar_added_with_name)
             
-            habar = add_bar_to_habars(HAbars, bar_added)
-            habars_queue.put(habar)
+            habar_with_name = add_bar_to_habars(HAbars, bar_added_with_name)
+            habars_queue.put(habar_with_name)
             
-            # add_bar_to_hamabars(HAMAbars, bar_added_with_name)
+            hamabar_with_name = add_bar_to_hamabars(HAMAbars, bar_added_with_name)
+            hama_queue.put(hamabar_with_name)
             
             # if len(bars) >= grouping_N:
             #     name, barN_added = update_barsN(bars_n, bars, grouping_N)

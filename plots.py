@@ -68,8 +68,9 @@ class PlotCandles(QWidget):
         def plot_bar(bar):
             tohlc = self.candle_from_bar(bar)
             if any(np.isnan(x) for x in tohlc):
+                print(f"NaN in bar: {bar}", flush=True)
                 return
-            print(tohlc)
+            print(tohlc, flush=True)
             self.plot_candle(tohlc)
             
         while not self.data_queue.empty():
@@ -82,7 +83,6 @@ class PlotCandles(QWidget):
         
     def clear_plot(self):
         self.plot_widget.clear()
-
 
 class PlotMaCandles(PlotCandles):
     def __init__(self, data_queue=None, title = None):
@@ -101,6 +101,44 @@ class PlotMaCandles(PlotCandles):
         except Exception as e:
             print(e, flush=True)
 
+        
+class PlotHACandles(PlotCandles):
+    def __init__(self, data_queue=None, title = 'HA Candles'):
+        super().__init__(data_queue, title)
+
+    def candle_from_bar(self, bar):
+        try:
+            tohlc = (
+                bar['name'],
+                bar['open'],
+                bar['high'],
+                bar['low'],
+                bar['close']
+            )
+            return tohlc    
+        except Exception as e:
+            print(e, flush=True)
+
+        
+
+class PlotHAMACandles(PlotCandles):
+    def __init__(self, data_queue=None, title = 'HAMA Candles'):
+        super().__init__(data_queue, title)
+
+    def candle_from_bar(self, bar):
+        try:
+            tohlc = (
+                bar['name'],
+                bar['open'],
+                bar['high'],
+                bar['low'],
+                bar['close']
+            )
+            return tohlc    
+        except Exception as e:
+            print(e, flush=True)
+
+        
 
 class PlotGroupN(PlotCandles):
     def __init__(self, data_queue=None, title = None):
@@ -118,4 +156,3 @@ class PlotGroupN(PlotCandles):
             return tohlc    
         except Exception as e:
             print(e, flush=True)
-        
