@@ -13,6 +13,12 @@ _tma_cols = ['timestamp']+ _ma_cols
 _all_cols = _tohlc_cols + _ma_cols
 periods = {'open': 9, 'high': 5, 'low': 9, 'close': 5}
 
+def check_no_nan_values(dictionary, keys):
+    for key in keys:
+        if key in dictionary and math.isnan(dictionary[key]):
+            return False
+    return True
+
 def add_bar_to_bars(bars, bar:dict):  
     bar_to_add = bar.copy()
     for i,attr in enumerate(_ohlc_cols):
@@ -46,9 +52,6 @@ def add_bar_to_habars(HAbars, bar):
             'low': ha_low, 'close': ha_close}
 
 def add_bar_to_hamabars(HAMAbars, bar):
-    for key in _ma_cols:
-        if np.isnan(bar[key]):
-            return
     if len(HAMAbars) == 0:
         hama_open = (bar['maopen'] + bar['maclose']) / 2
         hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
@@ -114,20 +117,20 @@ def analysis_process(queues):
             bar = raw_bars_queue.get()
             bar_added_with_name= add_bar_to_bars(bars, bar)
             
-            # bars_queue.put(bar_added_with_name)
+            bars_queue.put(bar_added_with_name)
             
+            if check_no_nan_values(bar_added_with_name, _ma_cols):
+                mabars_queue.put(bar_added_with_name)
             
-            mabars_queue.put(bar_added_with_name)
+            habar_with_name = add_bar_to_habars(HAbars, bar_added_with_name)
+            habars_queue.put(habar_with_name)
             
-            # habar_with_name = add_bar_to_habars(HAbars, bar_added_with_name)
-            # habars_queue.put(habar_with_name)
+            if check_no_nan_values(bar_added_with_name, _ma_cols):
+                hamabar_with_name = add_bar_to_hamabars(HAMAbars, bar_added_with_name)
+                hama_queue.put(hamabar_with_name)
             
-            # hamabar_with_name = add_bar_to_hamabars(HAMAbars, bar_added_with_name)
-            # if hamabar_with_name is not None:
-            #     hama_queue.put(hamabar_with_name)
-            
-            # if len(bars) >= grouping_N:
-            #     name, barN_added = update_barsN(bars_n, bars, grouping_N)
-            #     bars_N_grouped.loc[name] = barN_added
-            #     barN_added['name'] = name
-            #     groupN_queue.put(barN_added)
+            if len(bars) >= grouping_N:
+                name, barN_added = update_barsN(bars_n, bars, grouping_N)
+                bars_N_grouped.loc[name] = barN_added
+                barN_added['name'] = name
+                groupN_queue.put(barN_added)
