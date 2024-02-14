@@ -89,6 +89,7 @@ class PlotMaCandles(PlotCandles):
                 bar['malow'],
                 bar['maclose']
             )
+            print(tohlc, flush=True)
             return tohlc    
         except Exception as e:
             print(e, flush=True)

@@ -37,26 +37,26 @@ def main():
     )
     supplier_process.start()
     
-    bar_plot = plots.PlotCandles(data_queue=bars_queue, title="Bars")
-    bar_plot.show()    
+    # bar_plot = plots.PlotCandles(data_queue=bars_queue, title="Bars")
+    # bar_plot.show()    
         
     MA_plot = plots.PlotMaCandles(data_queue=mabars_queue, title="MA Bars")
     MA_plot.show()   
         
-    HA_plot = plots.PlotHACandles(data_queue=habars_queue, title="Heiken Ashi Bars")
-    HA_plot.show()    
+    # HA_plot = plots.PlotHACandles(data_queue=habars_queue, title="Heiken Ashi Bars")
+    # HA_plot.show()    
      
-    HAMA_plot = plots.PlotHACandles(data_queue=hama_queue, title="HAMA Bars")
-    HAMA_plot.show()    
+    # HAMA_plot = plots.PlotHACandles(data_queue=hama_queue, title="HAMA Bars")
+    # HAMA_plot.show()    
      
      
-    groupN_plot = plots.PlotGroupN(data_queue=groupN_queue, title="Group N Bars")
-    groupN_plot.show()    
+    # groupN_plot = plots.PlotGroupN(data_queue=groupN_queue, title="Group N Bars")
+    # groupN_plot.show()    
         
 
         
     window = MainWindow(queues)
-    window.show()
+    window.show() 
 
     # Start the application event loop
     app.exec()
