@@ -7,14 +7,14 @@ from time import sleep
 from moving_averages import weighted_moving_average_last
     
 symbol = "BTC/USD"
-_tohlc_cols = ['timestamp', 'open', 'high', 'low', 'close']
+_ntohlc_cols = ['name', 'timestamp', 'open', 'high', 'low', 'close']
 _ohlc_cols = ['open', 'high', 'low', 'close']
 _ma_cols = ['maopen', 'mahigh', 'malow', 'maclose']
 _tma_cols = ['timestamp']+ _ma_cols
 _ha_cols = ['haopen', 'hahigh', 'halow', 'haclose']
 _hama_cols = ['hamaopen', 'hamahigh', 'hamalow', 'hamaclose']
 
-_all_cols = _tohlc_cols + _ma_cols + _ha_cols + _hama_cols
+_all_cols = _ntohlc_cols + _ma_cols + _ha_cols + _hama_cols
 
 periods = {'open': 9, 'high': 5, 'low': 9, 'close': 5}
 
@@ -82,6 +82,7 @@ def add_hama_cols(input_bar, bars):
 
 def update_barsN(bars_n, bars, grouping_N):
     subdf = bars.iloc[-grouping_N:].copy()
+    name = subdf.name.iloc[-1]
     t = subdf.timestamp.iloc[-1]
     o = subdf.open.iloc[0]
     c = subdf.close.iloc[-1]
@@ -91,12 +92,12 @@ def update_barsN(bars_n, bars, grouping_N):
     mac = subdf.maclose.iloc[-1]
     mah = subdf.mahigh.max()
     mal = subdf.malow.min()
-    row = dict(zip( _all_cols, [t,o,h,l,c,mao,mah,mal,mac]))
-    name = subdf.index[-1]
+    
     n = len(bars) % grouping_N 
-    # row_series = pd.Series(row_dict) 
+    row = dict(zip( _all_cols, [t,o,h,l,c,mao,mah,mal,mac]))
     bars_n[n].loc[name] = row
-    return name, row
+    
+    return n, row
     
 def analysis_process(queues):
     raw_bars_queue = queues['raw_bars']
@@ -123,9 +124,9 @@ def analysis_process(queues):
             bar = add_ma_cols(bar, bars)
             bar = add_ha_cols(bar, bars)
             bar = add_hama_cols(bar, bars)
-            n = len(bars)
-            bar['name'] = n
-            bars.loc[n] = bar
+            name = len(bars)
+            bar['name'] = name
+            bars.loc[name] = bar
             
             queues['bars'].put(bar)
             
@@ -137,7 +138,7 @@ def analysis_process(queues):
             queues['hama'].put(bar)
 
             # if len(bars) >= grouping_N:
-            #     name, barN_added = update_barsN(bars_n, bars, grouping_N)
+            #     n, row_added = update_barsN(bars_n, bars, grouping_N)
             #     bars_N_grouped.loc[name] = barN_added
             #     barN_added['name'] = name
             #     groupN_queue.put(barN_added)

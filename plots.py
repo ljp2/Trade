@@ -45,33 +45,33 @@ class PlotCandles(QWidget):
         self.timer.timeout.connect(self.update_plot)
         self.timer.start(1000)  # Update every 1 second
 
-    def plot_candle(self, t,o,h,l,c):
+    def plot_candle(self, n,o,h,l,c):
         color = 'g' if c>o else 'r' if c<o else 'y'
         pen = pg.mkPen(color=color, width=2)
-        wick = ((t, t), (l, h))
+        wick = ((n, n), (l, h))
         self.plot_widget.plot(*wick, pen=pen)
         
-        rect =((t - self.rw2, min(o,c)), (self.rw, abs(o - c)))
+        rect =((n - self.rw2, min(o,c)), (self.rw, abs(o - c)))
         rect_item = FillableRect(rect, color)
         self.plot_widget.addItem(rect_item)
         
     
     def candle_from_bar(self, bar):
-            tohlc = [
+            nohlc = [
                 bar['name'],
                 bar['open'],
                 bar['high'],
                 bar['low'],
                 bar['close']
             ]
-            return tohlc
+            return nohlc
     
         
     def update_plot(self):
         def plot_bar(bar):
-            t,o,h,l,c = self.candle_from_bar(bar)
-            self.plot_candle(t,o,h,l,c)
-            self.line_x.append(t)
+            n,o,h,l,c = self.candle_from_bar(bar)
+            self.plot_candle(n,o,h,l,c)
+            self.line_x.append(n)
             self.line_y.append(c)
             self.line.setData(self.line_x, self.line_y)
             
@@ -90,14 +90,14 @@ class PlotMaCandles(PlotCandles):
 
     def candle_from_bar(self, bar):
         try:
-            tohlc = (
+            nohlc = (
                 bar['name'],
                 bar['maopen'],
                 bar['mahigh'],
                 bar['malow'],
                 bar['maclose']
             )
-            return tohlc    
+            return nohlc    
         except Exception as e:
             print(e, flush=True)
 
@@ -108,14 +108,14 @@ class PlotHACandles(PlotCandles):
 
     def candle_from_bar(self, bar):
         try:
-            tohlc = (
+            nohlc = (
                 bar['name'],
                 bar['haopen'],
                 bar['hahigh'],
                 bar['halow'],
                 bar['haclose']
             )
-            return tohlc    
+            return nohlc    
         except Exception as e:
             print(e, flush=True)
 
@@ -127,14 +127,14 @@ class PlotHAMACandles(PlotCandles):
 
     def candle_from_bar(self, bar):
         try:
-            tohlc = (
+            nohlc = (
                 bar['name'],
                 bar['hamaopen'],
                 bar['hamahigh'],
                 bar['hamalow'],
                 bar['hamaclose']
             )
-            return tohlc    
+            return nohlc    
         except Exception as e:
             print(e, flush=True)
 
@@ -146,13 +146,13 @@ class PlotGroupN(PlotCandles):
 
     def candle_from_bar(self, bar):
         try:
-            tohlc = (
+            nohlc = (
                 bar['name'],
                 bar['open'],
                 bar['high'],
                 bar['low'],
                 bar['close']
             )
-            return tohlc    
+            return nohlc    
         except Exception as e:
             print(e, flush=True)
