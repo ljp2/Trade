@@ -103,10 +103,10 @@ class PlotHACandles(PlotCandles):
         try:
             tohlc = (
                 bar['name'],
-                bar['open'],
-                bar['high'],
-                bar['low'],
-                bar['close']
+                bar['haopen'],
+                bar['hahigh'],
+                bar['halow'],
+                bar['haclose']
             )
             return tohlc    
         except Exception as e:
@@ -122,10 +122,10 @@ class PlotHAMACandles(PlotCandles):
         try:
             tohlc = (
                 bar['name'],
-                bar['open'],
-                bar['high'],
-                bar['low'],
-                bar['close']
+                bar['hamaopen'],
+                bar['hamahigh'],
+                bar['hamalow'],
+                bar['hamaclose']
             )
             return tohlc    
         except Exception as e:

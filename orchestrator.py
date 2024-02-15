@@ -49,8 +49,8 @@ def main():
     HAMA_plot = plots.PlotHACandles(data_queue=hama_queue, title="HAMA Bars")
     HAMA_plot.show()    
      
-    groupN_plot = plots.PlotGroupN(data_queue=groupN_queue, title="Group N Bars")
-    groupN_plot.show()    
+    # groupN_plot = plots.PlotGroupN(data_queue=groupN_queue, title="Group N Bars")
+    # groupN_plot.show()    
         
 
         

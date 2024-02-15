@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import math
 from datetime import datetime
+from time import sleep
 from moving_averages import weighted_moving_average_last
     
 symbol = "BTC/USD"
@@ -10,7 +11,11 @@ _tohlc_cols = ['timestamp', 'open', 'high', 'low', 'close']
 _ohlc_cols = ['open', 'high', 'low', 'close']
 _ma_cols = ['maopen', 'mahigh', 'malow', 'maclose']
 _tma_cols = ['timestamp']+ _ma_cols
-_all_cols = _tohlc_cols + _ma_cols
+_ha_cols = ['haopen', 'hahigh', 'halow', 'haclose']
+_hama_cols = ['hamaopen', 'hamahigh', 'hamalow', 'hamaclose']
+
+_all_cols = _tohlc_cols + _ma_cols + _ha_cols + _hama_cols
+
 periods = {'open': 9, 'high': 5, 'low': 9, 'close': 5}
 
 def check_no_nan_values(dictionary, keys):
@@ -19,56 +24,61 @@ def check_no_nan_values(dictionary, keys):
             return False
     return True
 
-def add_bar_to_bars(bars, bar:dict):  
-    bar_to_add = bar.copy()
+def add_ma_cols(input_bar, bars):
+    bar = input_bar.copy()
     for i,attr in enumerate(_ohlc_cols):
         period = periods[attr]
         values = bars[attr].values
         if len(values) < period:
-            bar_to_add[_ma_cols[i]] = np.nan
+            bar[_ma_cols[i]] = np.nan
         else:
             try:
-                bar_to_add[_ma_cols[i]] = weighted_moving_average_last(values, period)
+                bar[_ma_cols[i]] = weighted_moving_average_last(values, period)
             except Exception as e:
                 print(e, flush=True)
                 print(f"values: {values}, period: {period}", flush=True)
                 sys.exit()
-    n = len(bars)
-    bars.loc[n] = bar_to_add
-    return {'name': n, 'timestamp': bar_to_add['timestamp'], 'open': bar_to_add['open'], 'high': bar_to_add['high'], 'low': bar_to_add['low'], 'close': bar_to_add['close'], 'maopen': bar_to_add['maopen'], 'mahigh': bar_to_add['mahigh'], 'malow': bar_to_add['malow'], 'maclose': bar_to_add['maclose']}
+    return bar
 
-
-def add_bar_to_habars(HAbars, bar):
+def add_ha_cols(input_bar, bars):
+    bar = input_bar.copy()
     ha_close = (bar['open'] + bar['high'] + bar['low'] + bar['close']) / 4
-    if len(HAbars) == 0:
+    if len(bars) == 0:
         ha_open = (bar['open'] + bar['close']) / 2
     else:
-        ha_open = (HAbars.iloc[-1]['open'] + HAbars.iloc[-1]['close']) / 2
+        ha_open = (bars.iloc[-1]['open'] + bars.iloc[-1]['close']) / 2
     ha_high = max(bar['high'], ha_open, ha_close)
     ha_low = min(bar['low'], ha_open, ha_close)
-    row = {'timestamp': bar['timestamp'], 'open': ha_open, 'high': ha_high, 'low': ha_low, 'close': ha_close}
-    HAbars.loc[bar['name']] = row
-    return {'name': bar['name'], 'timestamp': bar['timestamp'], 'open': ha_open, 'high': ha_high, 
-            'low': ha_low, 'close': ha_close}
+    bar['haopen'] = ha_open
+    bar['hahigh'] = ha_high
+    bar['halow'] = ha_low
+    bar['haclose'] = ha_close
+    return bar
 
-def add_bar_to_hamabars(HAMAbars, bar):
-    if len(HAMAbars) == 0:
-        hama_open = (bar['maopen'] + bar['maclose']) / 2
-        hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
-        hama_high = max(bar['mahigh'], hama_open, hama_close)
-        hama_low = min(bar['malow'], hama_open, hama_close)
+def add_hama_cols(input_bar, bars):
+    bar = input_bar.copy()
+    if check_no_nan_values(bar, _ma_cols):
+        if bars.iloc[-1].maopen == np.nan:
+            hama_open = (bar['maopen'] + bar['maclose']) / 2
+            hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
+            hama_high = max(bar['mahigh'], hama_open, hama_close)
+            hama_low = min(bar['malow'], hama_open, hama_close)
+        else:
+            hama_open = (bars.iloc[-1]['open'] + bars.iloc[-1]['close']) / 2
+            hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
+            hama_high = max(bar['mahigh'], hama_open, hama_close)
+            hama_low = min(bar['malow'], hama_open, hama_close)
+        bar['hamaopen'] = hama_open
+        bar['hamahigh'] = hama_high
+        bar['hamalow'] = hama_low
+        bar['hamaclose'] = hama_close
     else:
-        hama_open = (HAMAbars.iloc[-1]['open'] + HAMAbars.iloc[-1]['close']) / 2
-        hama_close = (bar['maopen'] + bar['mahigh'] + bar['malow'] + bar['maclose']) / 4
-        hama_high = max(bar['mahigh'], hama_open, hama_close)
-        hama_low = min(bar['malow'], hama_open, hama_close)
-    row = {'timestamp': bar['timestamp'], 'open': hama_open, 'high': hama_high, 
-           'low': hama_low, 'close': hama_close}
-    name = bar['name']
-    HAMAbars.loc[name] = row
-    row['name'] = name
-    return row
-    
+        bar['hamaopen'] = np.nan
+        bar['hamahigh'] = np.nan
+        bar['hamalow'] = np.nan
+        bar['hamaclose'] = np.nan
+    return bar
+        
 
 def update_barsN(bars_n, bars, grouping_N):
     subdf = bars.iloc[-grouping_N:].copy()
@@ -92,9 +102,6 @@ def analysis_process(queues):
     raw_bars_queue = queues['raw_bars']
     command_queue = queues['command']
     bars_queue = queues['bars']
-    mabars_queue = queues['mabars']
-    habars_queue = queues['ha']
-    hama_queue = queues['hama']
     groupN_queue = queues['groupN']
     
     bars = pd.DataFrame(columns=_all_cols)
@@ -102,8 +109,6 @@ def analysis_process(queues):
     bars_n = []
     for i in range(grouping_N):
         bars_n.append(pd.DataFrame(columns=_all_cols))
-    HAbars = pd.DataFrame(columns=_tohlc_cols)
-    HAMAbars = pd.DataFrame(columns=_tohlc_cols)
     bars_N_grouped = pd.DataFrame(columns=_all_cols)
         
     while True:
@@ -115,22 +120,26 @@ def analysis_process(queues):
 
         while not raw_bars_queue.empty():
             bar = raw_bars_queue.get()
-            bar_added_with_name= add_bar_to_bars(bars, bar)
+            bar = add_ma_cols(bar, bars)
+            bar = add_ha_cols(bar, bars)
+            bar = add_hama_cols(bar, bars)
+            n = len(bars)
+            bar['name'] = n
+            bars.loc[n] = bar
             
-            bars_queue.put(bar_added_with_name)
+            queues['bars'].put(bar)
             
-            if check_no_nan_values(bar_added_with_name, _ma_cols):
-                mabars_queue.put(bar_added_with_name)
+            if check_no_nan_values(bar, _ma_cols):
+                queues['mabars'].put(bar)
+                
+            queues['ha'].put(bar)
             
-            habar_with_name = add_bar_to_habars(HAbars, bar_added_with_name)
-            habars_queue.put(habar_with_name)
+            queues['hama'].put(bar)
+
             
-            if check_no_nan_values(bar_added_with_name, _ma_cols):
-                hamabar_with_name = add_bar_to_hamabars(HAMAbars, bar_added_with_name)
-                hama_queue.put(hamabar_with_name)
             
-            if len(bars) >= grouping_N:
-                name, barN_added = update_barsN(bars_n, bars, grouping_N)
-                bars_N_grouped.loc[name] = barN_added
-                barN_added['name'] = name
-                groupN_queue.put(barN_added)
+            # if len(bars) >= grouping_N:
+            #     name, barN_added = update_barsN(bars_n, bars, grouping_N)
+            #     bars_N_grouped.loc[name] = barN_added
+            #     barN_added['name'] = name
+            #     groupN_queue.put(barN_added)
