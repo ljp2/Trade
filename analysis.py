@@ -136,8 +136,6 @@ def analysis_process(queues):
             
             queues['hama'].put(bar)
 
-            
-            
             # if len(bars) >= grouping_N:
             #     name, barN_added = update_barsN(bars_n, bars, grouping_N)
             #     bars_N_grouped.loc[name] = barN_added

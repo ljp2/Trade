@@ -36,17 +36,20 @@ class PlotCandles(QWidget):
         self.rw = 0.6
         self.rw2 = self.rw / 2
         
+        self.line_x = []
+        self.line_y = []
+        self.line = self.plot_widget.plot(self.line_x, self.line_y, pen=pg.mkPen(color='w', width=2))  
+        
         # Set up a timer to periodically check for new data
         self.timer = pg.QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot)
         self.timer.start(1000)  # Update every 1 second
 
-    def plot_candle(self, tohlc):
-        t,o,h,l,c = tohlc
+    def plot_candle(self, t,o,h,l,c):
         color = 'g' if c>o else 'r' if c<o else 'y'
         pen = pg.mkPen(color=color, width=2)
-        line = ((t, t), (l, h))
-        self.plot_widget.plot(*line, pen=pen)
+        wick = ((t, t), (l, h))
+        self.plot_widget.plot(*wick, pen=pen)
         
         rect =((t - self.rw2, min(o,c)), (self.rw, abs(o - c)))
         rect_item = FillableRect(rect, color)
@@ -66,12 +69,17 @@ class PlotCandles(QWidget):
         
     def update_plot(self):
         def plot_bar(bar):
-            tohlc = self.candle_from_bar(bar)
-            self.plot_candle(tohlc)
+            t,o,h,l,c = self.candle_from_bar(bar)
+            self.plot_candle(t,o,h,l,c)
+            self.line_x.append(t)
+            self.line_y.append(c)
+            self.line.setData(self.line_x, self.line_y)
+            
             
         while not self.data_queue.empty():
             data = self.data_queue.get()
-            plot_bar(data)  
+            plot_bar(data)
+            
         
     def clear_plot(self):
         self.plot_widget.clear()
@@ -89,7 +97,6 @@ class PlotMaCandles(PlotCandles):
                 bar['malow'],
                 bar['maclose']
             )
-            print(tohlc, flush=True)
             return tohlc    
         except Exception as e:
             print(e, flush=True)
