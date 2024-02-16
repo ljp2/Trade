@@ -121,6 +121,9 @@ def analysis_process(queues):
 
         while not raw_bars_queue.empty():
             bar = raw_bars_queue.get()
+            
+            print(bar, flush=True)
+            
             bar = add_ma_cols(bar, bars)
             bar = add_ha_cols(bar, bars)
             bar = add_hama_cols(bar, bars)
@@ -130,12 +133,12 @@ def analysis_process(queues):
             
             queues['bars'].put(bar)
             
-            if check_no_nan_values(bar, _ma_cols):
-                queues['mabars'].put(bar)
+            # if check_no_nan_values(bar, _ma_cols):
+            #     queues['mabars'].put(bar)
                 
-            queues['ha'].put(bar)
+            # queues['ha'].put(bar)
             
-            queues['hama'].put(bar)
+            # queues['hama'].put(bar)
 
             # if len(bars) >= grouping_N:
             #     n, row_added = update_barsN(bars_n, bars, grouping_N)
