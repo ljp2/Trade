@@ -1,6 +1,6 @@
 import asyncio
 import multiprocessing
-from supplierTEST import bars_supplier_process
+from supplierKraken import bars_supplier_process
 from analysis import analysis_process
 from pyqt_app import MainWindow
 from PyQt6.QtWidgets import QApplication
@@ -40,8 +40,8 @@ def main():
     bar_plot = plots.PlotCandles(data_queue=bars_queue, title="Bars")
     bar_plot.show()    
         
-    # MA_plot = plots.PlotMaCandles(data_queue=mabars_queue, title="MA Bars")
-    # MA_plot.show()   
+    MA_plot = plots.PlotMaCandles(data_queue=mabars_queue, title="MA Bars")
+    MA_plot.show()   
         
     # HA_plot = plots.PlotHACandles(data_queue=habars_queue, title="Heiken Ashi Bars")
     # HA_plot.show()    
