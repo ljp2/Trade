@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QCalendarWidget,
 from datetime import timedelta, date
 
 class DateRangeSelector(QWidget):
-    def __init__(self):
+    def __init__(self, file_name):  # Add file_name as an argument
         super().__init__()
 
         self.setWindowTitle("Date Range Selector")
@@ -23,6 +23,8 @@ class DateRangeSelector(QWidget):
 
         self.start_date_selected = False
         self.end_date_selected = False
+
+        self.file_name = file_name  # Store the file_name
 
         layout = QVBoxLayout()
         layout.addWidget(self.start_calendar_widget)
@@ -65,10 +67,14 @@ class DateRangeSelector(QWidget):
                     dates.append(current_date)
                     current_date += timedelta(days=1)
 
+                with open(self.file_name, 'w') as f:  # Open the file in write mode
+                    for date in dates:
+                        f.write(str(date) + '\n')  # Write each date to the file
+
                 print(dates)
 
 if __name__ == "__main__":
     app = QApplication([])
-    window = DateRangeSelector()
+    window = DateRangeSelector("my_file.txt")  # Pass the file_name when creating an instance
     window.show()
     app.exec()
