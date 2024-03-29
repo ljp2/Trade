@@ -1,7 +1,6 @@
 from ibapi.client import *
 from ibapi.wrapper import *
 from datetime import datetime, timedelta
-import date_list
 from multiprocessing import Process, Queue
 import queue
 
@@ -55,3 +54,4 @@ if __name__ == '__main__':
         app_process.start()
         app_process.join()
         print(f"Process {day} finished")
+        break
