@@ -1,39 +1,32 @@
-from ibapi.client import *
-from ibapi.wrapper import *
+from ibapi.client import EClient
+from ibapi.wrapper import EWrapper
+from ibapi.contract import Contract
+from ibapi.common import *
 from datetime import datetime, timedelta
-from multiprocessing import Process, Queue
-import queue
+
+from threading import Thread, Event
+import time
 
 
-class TestApp(EClient, EWrapper):
-    def __init__(self, day:str):
+class HistDataApp(EClient, EWrapper):
+    def __init__(self):
         EClient.__init__(self, self)
-        self.end_day = day.strftime("%Y%m%d 23:59:00 US/Eastern")
-        self.filename = day.strftime("%Y%m%d.csv")
-        self.data_file = open(self.filename, 'w')
-
+        self.data = []
+        self.done = Event()  # use threading.Event to signal between threads
+        self.connection_ready = Event()  # to signal the connection has been established
+        self.done.clear()
+        self.connection_ready.clear()
 
     def nextValidId(self, orderId: int):
-        contract = Contract()
-        contract.symbol = "AAPL"
-        contract.secType = "STK"
-        contract.exchange = "SMART"
-        contract.currency = "USD"
-        self.reqHistoricalData(orderId, contract, self.end_day, "1 D", "1 hour", "TRADES", 0, 1, 0, [])
-
+        print(f"Connection ready, next valid order ID: {orderId}")
+        self.connection_ready.set()  # signal that the connection is ready
+          
     def historicalData(self, reqId, bar):
-        s = f"{bar.date}\t{bar.open}\t{bar.high}\t{bar.low}\t{bar.close}\t{bar.volume}"
-        self.data_file.write(s + '\n')
+        self.data.append(bar)
+        print(f"{bar.date} {bar.open} {bar.high} {bar.low} {bar.close} {bar.volume}")
         
     def historicalDataEnd(self, reqId, start, end):
-        print(f"End of HistoricalData {self.filename}")
-        self.data_file.close()
-        self.disconnect()
-
-def run_app_process(day:str):
-    app = TestApp(day)
-    app.connect("127.0.0.1", 4002, 1000)
-    app.run()    
+        self.done.set()
 
 
 def get_weekdays(start_date, end_date):
@@ -45,13 +38,30 @@ def get_weekdays(start_date, end_date):
         current_date += timedelta(days=1)
     return weekdays
 
-if __name__ == '__main__':
-    start_date = datetime(2024, 3, 7)
-    end_date = datetime(2024, 3, 12)
-    weekday_list = get_weekdays(start_date, end_date)
-    for day in weekday_list:
-        app_process = Process(target=run_app_process, args=(day,), daemon=True)
-        app_process.start()
-        app_process.join()
-        print(f"Process {day} finished")
-        break
+def run_loop(app):
+    app.run()
+    
+contract = Contract()
+contract.symbol = "AAPL"
+contract.secType = "STK"
+contract.exchange = "SMART"
+contract.currency = "USD"
+    
+app = HistDataApp()
+app.connect("127.0.0.1", 4002, clientId=0)
+api_thread = Thread(target=run_loop, args=(app,), daemon=True)
+api_thread.start()
+app.connection_ready.wait()
+
+
+app.reqHistoricalData(4002, contract, "", "1 D", "1 hour", "TRADES", 0, 1, 0, [])
+app.done.wait()
+
+
+for bar in app.data:
+    print(f"{bar.date} {bar.open} {bar.high} {bar.low} {bar.close} {bar.volume}")
+
+
+# app.data_file = open("AAPL_1D.csv", "w")
+
+app.disconnect()
