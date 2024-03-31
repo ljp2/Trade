@@ -23,45 +23,47 @@ class HistDataApp(EClient, EWrapper):
           
     def historicalData(self, reqId, bar):
         self.data.append(bar)
-        print(f"{bar.date} {bar.open} {bar.high} {bar.low} {bar.close} {bar.volume}")
+        # print(f"{bar.date} {bar.open} {bar.high} {bar.low} {bar.close} {bar.volume}")
         
     def historicalDataEnd(self, reqId, start, end):
         self.done.set()
 
 
-def get_weekdays(start_date, end_date):
-    weekdays = []
-    current_date = start_date
-    while current_date <= end_date:
-        if current_date.weekday() < 5:  # Monday = 0, Sunday = 6
-            weekdays.append(current_date)
-        current_date += timedelta(days=1)
-    return weekdays
-
 def run_loop(app):
     app.run()
     
+def get_historical_data(app, contract, end_date, duration="1 D", bar_size="1 min"):
+    app.reqHistoricalData(4002, contract, end_date, duration, bar_size, "TRADES", 0, 1, 0, [])
+    app.done.wait()
+
+def write_to_csv(data, filename):
+    with open(filename, "w") as f:
+        for bar in data:
+            f.write(f"{bar.date[9:14]}\t{bar.open}\t{bar.high}\t{bar.low}\t{bar.close}\n")
+
 contract = Contract()
 contract.symbol = "AAPL"
 contract.secType = "STK"
 contract.exchange = "SMART"
 contract.currency = "USD"
-    
+
 app = HistDataApp()
 app.connect("127.0.0.1", 4002, clientId=0)
 api_thread = Thread(target=run_loop, args=(app,), daemon=True)
 api_thread.start()
-app.connection_ready.wait()
+app.connection_ready.wait(5)
 
-
-app.reqHistoricalData(4002, contract, "", "1 D", "1 hour", "TRADES", 0, 1, 0, [])
-app.done.wait()
-
-
-for bar in app.data:
-    print(f"{bar.date} {bar.open} {bar.high} {bar.low} {bar.close} {bar.volume}")
-
-
-# app.data_file = open("AAPL_1D.csv", "w")
-
-app.disconnect()
+day = datetime.today() 
+desired_days = 2
+n = 0
+while n < desired_days:
+    if day.weekday() < 5:
+        end_day_time =  day.strftime("%Y%m%d %H:%M:%S") + " US/Eastern"
+        ymd = end_day_time.split(" ")[0]
+        get_historical_data(app, contract, end_day_time)
+        if ymd == app.data[0].date.split(" ")[0]:
+            write_to_csv(app.data, f"{contract.symbol}_{ymd}.csv")
+            n += 1
+        else:
+            print(f"Data for {ymd} is not available")
+    day -= timedelta(days=1)
