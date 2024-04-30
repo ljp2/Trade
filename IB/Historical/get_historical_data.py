@@ -1,11 +1,10 @@
+import os
+from datetime import datetime, timedelta
+from threading import Thread, Event
+import time
 from ibapi.client import EClient
 from ibapi.wrapper import EWrapper
 from ibapi.contract import Contract
-from datetime import datetime, timedelta
-
-from threading import Thread, Event
-import time
-
 
 class HistDataApp(EClient, EWrapper):
     def __init__(self):
@@ -49,7 +48,7 @@ def write_to_csv(data, filename):
         for bar in data:
             f.write(f"{bar.date[9:14]}\t{bar.open}\t{bar.high}\t{bar.low}\t{bar.close}\t{bar.volume}\n")
 
-def main():
+def main(data_directory: str):
     contract = Contract()
     contract.symbol = "SPY"
     contract.secType = "STK"
@@ -57,30 +56,36 @@ def main():
     contract.currency = "USD"
 
     app = HistDataApp()
-    app.connect("127.0.0.1", 4001, clientId=0)
+    app.connect("127.0.0.1", 4002, clientId=0)
     api_thread = Thread(target=run_loop, args=(app,), daemon=True)
     api_thread.start()
     app.connection_ready.wait(5)
 
+    current_data_files = os.listdir(data_directory)
     day = datetime.now() - timedelta(days=1)
-    desired_days = 1
+    desired_days = 250
     n = 0
     while n < desired_days:
         if day.weekday() < 5:
             ymd = day.strftime("%Y%m%d")
-            endDateTime = ymd + " 16:00:00"
+            filename = f"{ymd}.csv"
+            if filename in current_data_files:
+                break
+            endDateTime = ymd + " 16:00:00 US/Eastern"
+
             get_historical_data(app, contract, endDateTime)
             if ymd == app.data[0].date.split(" ")[0]:
-                write_to_csv(app.data, f"Data/{ymd}.csv")
+                write_to_csv(app.data, f"{data_directory}/{filename}")
                 print(ymd)
                 n += 1
             else:
                 print(f"Data for {ymd} is not available")
         day -= timedelta(days=1)
-        time.sleep(10)
+        time.sleep(15)
     app.disconnect()
     print("Done")
 
 
 if __name__ == "__main__":
-    main()
+    data_directory = "C:/Data"
+    main(data_directory)
